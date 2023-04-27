@@ -19,6 +19,6 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Expand
-      run: cargo expand --verbose
+      run: cargo install cargo-expand && cargo expand --verbose
     - name: Test
       run: cargo test --verbose
