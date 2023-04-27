@@ -39,7 +39,7 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cover(does_nothing(0), does_nothing(1))]
+#[cover(does_nothing(&0), does_nothing(&1))]
 fn id<A>(a: A) -> A {
     a
 }
