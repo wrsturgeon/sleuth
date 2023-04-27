@@ -19,6 +19,6 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Expand
-      run: cargo install cargo-expand && cargo +nightly expand --verbose
+      run: rustup toolchain install nightly && cargo install cargo-expand && cargo +nightly expand --verbose
     - name: Test
       run: cargo test --verbose
