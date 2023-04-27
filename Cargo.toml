@@ -1,0 +1,11 @@
+[package]
+name = "cargo-brute"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "*"
+brute-mutator = { path = "brute-mutator" }
+hashbrown = { version = "*", features = ["inline-more"] }
+prettyplease = "*"
+syn = { version = "*", features = ["extra-traits", "full"] }
