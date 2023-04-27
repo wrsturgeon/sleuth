@@ -29,17 +29,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cargo-brute"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "brute-mutator",
- "hashbrown",
- "prettyplease",
- "syn",
-]
-
-[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -52,6 +41,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
 dependencies = [
  "ahash",
+]
+
+[[package]]
+name = "minspec"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "brute-mutator",
+ "hashbrown",
+ "prettyplease",
+ "syn",
 ]
 
 [[package]]
