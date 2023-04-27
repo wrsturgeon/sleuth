@@ -1,11 +1,11 @@
 [package]
-name = "minspec"
+name = "poirot"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 anyhow = "*"
-brute-mutator = { path = "brute-mutator" }
 hashbrown = { version = "*", features = ["inline-more"] }
+poirot-mutator = { path = "poirot-mutator" }
 prettyplease = "*"
 syn = { version = "*", features = ["extra-traits", "full"] }

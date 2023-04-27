@@ -1,5 +1,5 @@
 [package]
-name = "brute-mutator"
+name = "poirot-mutator"
 version = "0.1.0"
 edition = "2021"
 authors = ["Will Sturgeon <willstrgn@gmail.com>"]
