@@ -48,7 +48,7 @@ pub fn cover_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, 
     let ast: Item = syn::parse2(input)?;
     ast.to_tokens(&mut ts);
 
-    // Make sure this macro is applied to a function, and get the function's AST
+    // Make sure this macro is applied to a function & get the function's AST
     let Item::Fn(f) = ast else { return Err(syn::Error::new(ast.span(), "This macro can be applied only to functions")); };
     if f.sig.unsafety.is_some() {
         return Err(syn::Error::new(
@@ -112,47 +112,42 @@ pub fn cover_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, 
         }
     }
 
-    let mut punc_generics = Punctuated::new();
-    punc_generics.push_value(syn::GenericParam::Type(syn::TypeParam {
-        attrs: vec![],
-        ident: Ident::new("F", Span::call_site()),
-        colon_token: None,
-        bounds: Punctuated::new(),
-        eq_token: None,
-        default: None,
-    }));
-    let mut punc_type = Punctuated::new();
-    punc_type.push_value(syn::PathSegment {
-        ident: Ident::new("F", Span::call_site()),
-        arguments: syn::PathArguments::None,
-    });
-    let mut punc_inputs = Punctuated::new();
-    punc_inputs.push_value(syn::FnArg::Typed(syn::PatType {
-        attrs: vec![],
-        pat: Box::new(syn::Pat::Path(syn::ExprPath {
-            attrs: vec![],
-            qself: None,
-            path: syn::Path {
-                leading_colon: None,
-                segments: make_punc_pathseg(Ident::new(FN_ARG_NAME, Span::call_site())),
-            },
-        })),
-        colon_token: syn::token::Colon {
-            spans: [Span::call_site()],
+    // TODO: for each predicate we have to cover, *specify that type* and add them all together
+    // e.g. ..._check_cover<F: Fn(&u8) -> &u8 + Fn(&u16) -> &u16 + ...>(f: F) -> bool {
+    let mut input_types = Punctuated::new();
+    for arg in f.sig.inputs {
+        match arg {
+            syn::FnArg::Typed(t) => input_types.push(*t.ty),
+            _ => {
+                return Err(syn::Error::new(
+                    arg.span(),
+                    "Something went wrong with function argument types",
+                ))
+            }
+        }
+    }
+    let fn_once_bound = make_punc(syn::TypeParamBound::Trait(syn::TraitBound {
+        paren_token: None,
+        modifier: syn::TraitBoundModifier::None,
+        lifetimes: None,
+        path: syn::Path {
+            leading_colon: None,
+            segments: make_punc(syn::PathSegment {
+                ident: Ident::new("Fn", Span::call_site()),
+                arguments: syn::PathArguments::Parenthesized(syn::ParenthesizedGenericArguments {
+                    paren_token: syn::token::Paren {
+                        span: proc_macro2::Group::new(
+                            proc_macro2::Delimiter::Parenthesis,
+                            TokenStream::new(),
+                        )
+                        .delim_span(),
+                    },
+                    inputs: input_types,
+                    output: f.sig.output,
+                }),
+            }),
         },
-        ty: Box::new(syn::Type::Path(syn::TypePath {
-            qself: None,
-            path: syn::Path {
-                leading_colon: None,
-                segments: punc_type,
-            },
-        })),
     }));
-    let mut punc_bool = Punctuated::new();
-    punc_bool.push_value(syn::PathSegment {
-        ident: Ident::new("bool", Span::call_site()),
-        arguments: syn::PathArguments::None,
-    });
     syn::Item::Fn(syn::ItemFn {
         attrs: vec![],
         vis: syn::Visibility::Inherited,
@@ -172,7 +167,16 @@ pub fn cover_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, 
                 lt_token: Some(syn::token::Lt {
                     spans: [Span::call_site()],
                 }),
-                params: punc_generics,
+                params: make_punc(syn::GenericParam::Type(syn::TypeParam {
+                    attrs: vec![],
+                    ident: Ident::new("F", Span::call_site()),
+                    colon_token: Some(syn::token::Colon {
+                        spans: [Span::call_site()],
+                    }),
+                    bounds: fn_once_bound,
+                    eq_token: None,
+                    default: None,
+                })),
                 gt_token: Some(syn::token::Gt {
                     spans: [Span::call_site()],
                 }),
@@ -185,7 +189,34 @@ pub fn cover_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, 
                 )
                 .delim_span(),
             },
-            inputs: punc_inputs,
+            inputs: make_punc(syn::FnArg::Typed(syn::PatType {
+                attrs: vec![],
+                pat: Box::new(syn::Pat::Path(syn::ExprPath {
+                    attrs: vec![],
+                    qself: None,
+                    path: syn::Path {
+                        leading_colon: None,
+                        segments: make_punc_pathseg(Ident::new(FN_ARG_NAME, Span::call_site())),
+                    },
+                })),
+                colon_token: syn::token::Colon {
+                    spans: [Span::call_site()],
+                },
+                ty: Box::new(syn::Type::Reference(syn::TypeReference {
+                    and_token: syn::token::And {
+                        spans: [Span::call_site()],
+                    },
+                    lifetime: None,
+                    mutability: None,
+                    elem: Box::new(syn::Type::Path(syn::TypePath {
+                        qself: None,
+                        path: syn::Path {
+                            leading_colon: None,
+                            segments: make_punc_pathseg(Ident::new("F", Span::call_site())),
+                        },
+                    })),
+                })),
+            })),
             variadic: None,
             output: syn::ReturnType::Type(
                 syn::token::RArrow {
@@ -195,7 +226,7 @@ pub fn cover_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, 
                     qself: None,
                     path: syn::Path {
                         leading_colon: None,
-                        segments: punc_bool,
+                        segments: make_punc_pathseg(Ident::new("bool", Span::call_site())),
                     },
                 })),
             ),

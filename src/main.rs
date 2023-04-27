@@ -11,10 +11,10 @@ fn main() -> anyhow::Result<()> {
 }
 
 #[poirot(does_nothing(&0), does_nothing(&1))]
-fn id<A>(a: A) -> A {
+fn id(a: &u8) -> &u8 {
     a
 }
 
-fn does_nothing<T: PartialEq, F: FnOnce(&T) -> &T>(f: F, x: &T) -> bool {
+fn does_nothing<T: PartialEq, F: Fn(&T) -> &T>(f: F, x: &T) -> bool {
     f(x) == x
 }
