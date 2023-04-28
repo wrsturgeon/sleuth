@@ -2,6 +2,7 @@ use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::ToTokens;
 use syn::{punctuated::Punctuated, spanned::Spanned, Expr, Item};
 
+const FN_TYPE_NAME: &'static str = "_FnToCheck";
 const FN_ARG_NAME: &'static str = "f";
 
 #[inline(always)]
@@ -31,6 +32,7 @@ fn make_path(i: Ident) -> Expr {
     })
 }
 
+#[inline(always)]
 pub fn cover_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, syn::Error> {
     #![allow(unused_assignments)]
 
@@ -169,7 +171,7 @@ pub fn cover_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, 
                 }),
                 params: make_punc(syn::GenericParam::Type(syn::TypeParam {
                     attrs: vec![],
-                    ident: Ident::new("F", Span::call_site()),
+                    ident: Ident::new(FN_TYPE_NAME, Span::call_site()),
                     colon_token: Some(syn::token::Colon {
                         spans: [Span::call_site()],
                     }),
@@ -212,7 +214,10 @@ pub fn cover_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, 
                         qself: None,
                         path: syn::Path {
                             leading_colon: None,
-                            segments: make_punc_pathseg(Ident::new("F", Span::call_site())),
+                            segments: make_punc_pathseg(Ident::new(
+                                FN_TYPE_NAME,
+                                Span::call_site(),
+                            )),
                         },
                     })),
                 })),

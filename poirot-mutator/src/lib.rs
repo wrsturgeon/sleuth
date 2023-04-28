@@ -15,12 +15,3 @@ pub fn poirot(attr: TokenStream, input: TokenStream) -> TokenStream {
     }
     .into()
 }
-
-// #[proc_macro_attribute]
-// pub fn fn_predicate(attr: TokenStream, input: TokenStream) -> TokenStream {
-//     match fn_predicate_impl(attr.into(), input.into()) {
-//         Ok(ts) => ts,
-//         Err(e) => e.to_compile_error(),
-//     }
-//     .into()
-// }
