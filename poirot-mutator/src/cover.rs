@@ -34,8 +34,6 @@ fn make_path(i: Ident) -> Expr {
 
 #[inline(always)]
 pub fn cover_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, syn::Error> {
-    #![allow(unused_assignments)]
-
     if attr.is_empty() {
         return Err(syn::Error::new(
             attr.span(),
@@ -77,27 +75,72 @@ pub fn cover_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, 
         }));
         punc_args.push(Expr::Verbatim(fn_args.stream()));
 
-        let this_pred = Expr::Call(syn::ExprCall {
+        let this_pred = syn::Expr::Macro(syn::ExprMacro {
             attrs: vec![],
-            func: Box::new(make_path(fn_name)),
-            paren_token: syn::token::Paren {
-                span: proc_macro2::Group::new(
-                    proc_macro2::Delimiter::Parenthesis,
-                    TokenStream::new(),
-                )
-                .delim_span(),
+            mac: syn::Macro {
+                path: syn::Path {
+                    leading_colon: None,
+                    segments: make_punc_pathseg(Ident::new("timid_assert", Span::call_site())),
+                },
+                bang_token: syn::token::Not {
+                    spans: [Span::call_site()],
+                },
+                delimiter: syn::MacroDelimiter::Paren(syn::token::Paren {
+                    span: proc_macro2::Group::new(
+                        proc_macro2::Delimiter::Parenthesis,
+                        TokenStream::new(),
+                    )
+                    .delim_span(),
+                }),
+                tokens: Expr::Call(syn::ExprCall {
+                    attrs: vec![],
+                    func: Box::new(make_path(fn_name)),
+                    paren_token: syn::token::Paren {
+                        span: proc_macro2::Group::new(
+                            proc_macro2::Delimiter::Parenthesis,
+                            TokenStream::new(),
+                        )
+                        .delim_span(),
+                    },
+                    args: punc_args,
+                })
+                .into_token_stream(),
             },
-            args: punc_args,
         });
 
         pred = Some(if let Some(pred) = pred {
-            Expr::Binary(syn::ExprBinary {
+            Expr::MethodCall(syn::ExprMethodCall {
                 attrs: vec![],
-                left: Box::new(pred),
-                op: syn::BinOp::And(syn::token::AndAnd {
-                    spans: [Span::call_site(), Span::call_site()],
-                }),
-                right: Box::new(this_pred),
+                receiver: Box::new(pred),
+                dot_token: syn::token::Dot {
+                    spans: [Span::call_site()],
+                },
+                method: Ident::new("or_else", Span::call_site()),
+                turbofish: None,
+                paren_token: syn::token::Paren {
+                    span: proc_macro2::Group::new(
+                        proc_macro2::Delimiter::Parenthesis,
+                        TokenStream::new(),
+                    )
+                    .delim_span(),
+                },
+                args: make_punc(Expr::Closure(syn::ExprClosure {
+                    attrs: vec![],
+                    lifetimes: None,
+                    constness: None,
+                    movability: None,
+                    asyncness: None,
+                    capture: None,
+                    or1_token: syn::token::Or {
+                        spans: [Span::call_site()],
+                    },
+                    inputs: Punctuated::new(),
+                    or2_token: syn::token::Or {
+                        spans: [Span::call_site()],
+                    },
+                    output: syn::ReturnType::Default,
+                    body: Box::new(this_pred),
+                })),
             })
         } else {
             this_pred
@@ -114,8 +157,6 @@ pub fn cover_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, 
         }
     }
 
-    // TODO: for each predicate we have to cover, *specify that type* and add them all together
-    // e.g. ..._check_cover<F: Fn(&u8) -> &u8 + Fn(&u16) -> &u16 + ...>(f: F) -> bool {
     let mut input_types = Punctuated::new();
     for arg in f.sig.inputs {
         match arg {
@@ -231,7 +272,39 @@ pub fn cover_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, 
                     qself: None,
                     path: syn::Path {
                         leading_colon: None,
-                        segments: make_punc_pathseg(Ident::new("bool", Span::call_site())),
+                        segments: make_punc(syn::PathSegment {
+                            ident: Ident::new("Option", Span::call_site()),
+                            arguments: syn::PathArguments::AngleBracketed(
+                                syn::AngleBracketedGenericArguments {
+                                    colon2_token: None,
+                                    lt_token: syn::token::Lt {
+                                        spans: [Span::call_site()],
+                                    },
+                                    args: make_punc(syn::GenericArgument::Type(
+                                        syn::Type::Reference(syn::TypeReference {
+                                            and_token: syn::token::And {
+                                                spans: [Span::call_site()],
+                                            },
+                                            lifetime: None,
+                                            mutability: None,
+                                            elem: Box::new(syn::Type::Path(syn::TypePath {
+                                                qself: None,
+                                                path: syn::Path {
+                                                    leading_colon: None,
+                                                    segments: make_punc_pathseg(Ident::new(
+                                                        "str",
+                                                        Span::call_site(),
+                                                    )),
+                                                },
+                                            })),
+                                        }),
+                                    )),
+                                    gt_token: syn::token::Gt {
+                                        spans: [Span::call_site()],
+                                    },
+                                },
+                            ),
+                        }),
                     },
                 })),
             ),
