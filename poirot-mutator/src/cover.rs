@@ -21,18 +21,6 @@ fn make_punc_pathseg<P>(i: Ident) -> Punctuated<syn::PathSegment, P> {
 }
 
 #[inline(always)]
-fn make_path(i: Ident) -> Expr {
-    Expr::Path(syn::ExprPath {
-        attrs: vec![],
-        qself: None,
-        path: syn::Path {
-            leading_colon: None,
-            segments: make_punc_pathseg(i),
-        },
-    })
-}
-
-#[inline(always)]
 pub fn cover_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, syn::Error> {
     if attr.is_empty() {
         return Err(syn::Error::new(
@@ -75,6 +63,15 @@ pub fn cover_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, 
         }));
         punc_args.push(Expr::Verbatim(fn_args.stream()));
 
+        let mut fn_path = make_punc_pathseg(Ident::new("crate", Span::call_site()));
+        fn_path.push(syn::PathSegment {
+            ident: Ident::new("poirot", Span::call_site()),
+            arguments: syn::PathArguments::None,
+        });
+        fn_path.push(syn::PathSegment {
+            ident: fn_name,
+            arguments: syn::PathArguments::None,
+        });
         let this_pred = syn::Expr::Macro(syn::ExprMacro {
             attrs: vec![],
             mac: syn::Macro {
@@ -94,7 +91,14 @@ pub fn cover_impl(attr: TokenStream, input: TokenStream) -> Result<TokenStream, 
                 }),
                 tokens: Expr::Call(syn::ExprCall {
                     attrs: vec![],
-                    func: Box::new(make_path(fn_name)),
+                    func: Box::new(Expr::Path(syn::ExprPath {
+                        attrs: vec![],
+                        qself: None,
+                        path: syn::Path {
+                            leading_colon: None,
+                            segments: fn_path,
+                        },
+                    })),
                     paren_token: syn::token::Paren {
                         span: proc_macro2::Group::new(
                             proc_macro2::Delimiter::Parenthesis,

@@ -1,3 +1,4 @@
+#[macro_export]
 macro_rules! timid_assert {
     ($cond:expr) => {
         if (!$cond) {
@@ -7,3 +8,5 @@ macro_rules! timid_assert {
         }
     };
 }
+
+pub use timid_assert;
