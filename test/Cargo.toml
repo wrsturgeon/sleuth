@@ -1,0 +1,12 @@
+[package]
+name = "test"
+version = "0.1.0"
+edition = "2021"
+authors = ["Will Sturgeon <willstrgn@gmail.com>"]
+publish = false
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+poirot = { path = ".." }

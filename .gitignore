@@ -1,4 +1,10 @@
-/target
 /.vscode
-/Cargo.lock
 *.DS_Store
+
+/target
+/mutator/target
+/test/target
+
+/Cargo.lock
+/mutator/Cargo.lock
+/test/Cargo.lock

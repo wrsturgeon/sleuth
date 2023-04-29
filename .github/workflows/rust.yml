@@ -16,9 +16,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Expand
+      run: rustup toolchain install nightly && cargo install cargo-expand && cd test && cargo +nightly expand --verbose
     - name: Build
       run: cargo build --verbose
-    - name: Expand
-      run: rustup toolchain install nightly && cargo install cargo-expand && cargo +nightly expand --verbose
+    - name: Check
+      run: cargo check --verbose && cd mutator && cargo check --verbose && cd ../test && cargo check --verbose
+    - name: Clippy
+      run: cargo clippy --verbose && cd mutator && cargo clippy --verbose && cd ../test && cargo clippy --verbose
     - name: Test
-      run: cargo test --verbose
+      run: cargo test --verbose && cd mutator && cargo test --verbose && cd ../test && cargo test --verbose

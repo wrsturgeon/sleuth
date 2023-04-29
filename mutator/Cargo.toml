@@ -1,8 +1,9 @@
 [package]
-name = "poirot-mutator"
+name = "mutator"
 version = "0.1.0"
 edition = "2021"
 authors = ["Will Sturgeon <willstrgn@gmail.com>"]
+publish = false
 
 [dependencies]
 proc-macro2 = "*"

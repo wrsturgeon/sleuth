@@ -2,11 +2,25 @@
 name = "poirot"
 version = "0.1.0"
 edition = "2021"
+description = "Extremely opinionated testing framework generating an exact specification and reducing code to its minimal implementation."
+license = "Zlib"
+repository = "https://github.com/wrsturgeon/poirot"
+readme = "README.md"
+keywords = ["testing", "safety", "test", "compiler", "parser"]
+categories = [
+  "development-tools",
+  "development-tools::testing",
+  "compilers",
+  "compression",
+]
+
+[lib]
+crate-type = ["lib"]
 
 [dependencies]
-anyhow = "*"
-colored = "*"
-hashbrown = { version = "*", features = ["inline-more"] }
-poirot-mutator = { path = "poirot-mutator" }
-prettyplease = "*"
-syn = { version = "*", features = ["extra-traits", "full"] }
+anyhow = ">=1"
+colored = ">=2"
+hashbrown = { version = ">=0.13", features = ["inline-more"] }
+mutator = { path = "mutator" }
+prettyplease = ">=0.2"
+syn = { version = ">=2", features = ["extra-traits", "full"] }
