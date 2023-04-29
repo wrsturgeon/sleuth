@@ -12,6 +12,7 @@ pub fn does_something<T: PartialEq, F: Fn(&T) -> &T>(f: F, x: &T) -> bool {
 
 #[test]
 fn id_automatic_test() {
+    use colored::Colorize;
     let _: Option<()> = crate::id_check_cover(&crate::id)
-        .and_then(|e| panic!("{}", e.replace("crate::poirot::", "")));
+        .and_then(|e| panic!("{}", e.replace("crate::poirot::", "").as_str().on_red()));
 }
