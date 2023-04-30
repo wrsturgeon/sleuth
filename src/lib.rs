@@ -45,7 +45,7 @@
 
 mod util;
 
-pub use mutator::*;
+pub use sleuth_mutator::*;
 
 /// Turns the output of a `timid_assert!` into a test.
 /// # Panics
