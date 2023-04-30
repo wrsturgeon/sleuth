@@ -21,8 +21,8 @@ jobs:
     - name: Build
       run: cargo build --verbose --color=always
     - name: Check
-      run: cargo check --verbose --color=always && cd mutator && cargo check --verbose --color=always && cd ../test && cargo check --verbose --color=always
+      run: cargo check --verbose --color=always && cd sleuth-mutator && cargo check --verbose --color=always && cd ../test && cargo check --verbose --color=always
     - name: Clippy
-      run: cargo clippy --verbose --color=always && cd mutator && cargo clippy --verbose --color=always && cd ../test && cargo clippy --verbose --color=always
+      run: cargo clippy --verbose --color=always && cd sleuth-mutator && cargo clippy --verbose --color=always && cd ../test && cargo clippy --verbose --color=always
     - name: Test
-      run: cargo test --verbose --color=always && cd mutator && cargo test --verbose --color=always && cd ../test && cargo test --verbose --color=always
+      run: cargo test --verbose --color=always && cd sleuth-mutator && cargo test --verbose --color=always && cd ../test && cargo test --verbose --color=always
