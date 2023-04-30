@@ -2,19 +2,19 @@
 
 /// A return statement (or final expression without a semicolon).
 #[inline]
-pub fn rtn<T>(x: T) -> T {
+pub const fn rtn<T>(x: T) -> T {
     x
 }
 
 /// A variable identified by a path through its enclosing modules.
 #[inline]
-pub fn path<T>(x: T) -> T {
+pub const fn path<T>(x: T) -> T {
     x
 }
 
 /// A literal, like `true`, `3`, `3.14159`, etc.
 #[inline]
-pub fn literal<T>(x: T) -> T {
+pub const fn literal<T>(x: T) -> T {
     x
 }
 
@@ -22,8 +22,9 @@ pub fn literal<T>(x: T) -> T {
 #[inline]
 pub fn add<A, B, C>(a: A, b: B) -> C
 where
-    A: std::ops::Add<B, Output = C>,
+    A: core::ops::Add<B, Output = C>,
 {
+    #![allow(clippy::arithmetic_side_effects)]
     a + b
 }
 
@@ -31,7 +32,8 @@ where
 #[inline]
 pub fn sub<A, B, C>(a: A, b: B) -> C
 where
-    A: std::ops::Sub<B, Output = C>,
+    A: core::ops::Sub<B, Output = C>,
 {
+    #![allow(clippy::arithmetic_side_effects)]
     a - b
 }

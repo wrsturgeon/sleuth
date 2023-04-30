@@ -1,6 +1,7 @@
 //! Utilities for consuming a usual function and spitting out an AST-aligned representation we can mutate later.
 
 use crate::{ident, make_punc, make_punc_pathseg};
+use quote::ToTokens;
 use syn::{punctuated::Punctuated, spanned::Spanned};
 
 macro_rules! community_input {
@@ -47,26 +48,53 @@ fn call(fnname: &str, args: Punctuated<syn::Expr, syn::token::Comma>) -> syn::Ex
 
 pub fn item(ast: &syn::Item) -> Result<syn::Item, syn::Error> {
     match ast {
-        syn::Item::Fn(f) => Ok(syn::Item::Fn(syn::ItemFn {
-            attrs: f.attrs.clone(),
-            vis: f.vis.clone(),
-            sig: syn::Signature {
-                constness: None,
-                asyncness: f.sig.asyncness,
-                unsafety: f.sig.unsafety,
-                abi: f.sig.abi.clone(),
-                fn_token: f.sig.fn_token,
-                ident: f.sig.ident.clone(),
-                generics: f.sig.generics.clone(),
-                paren_token: f.sig.paren_token,
-                inputs: f.sig.inputs.clone(),
-                variadic: f.sig.variadic.clone(),
-                output: f.sig.output.clone(),
-            },
-            block: Box::new(block(f.block.as_ref())?),
-        })),
+        syn::Item::Fn(f) => Ok(syn::Item::Fn(function(f)?)),
         _ => community_input!(ast),
     }
+}
+
+pub fn function(f: &syn::ItemFn) -> Result<syn::ItemFn, syn::Error> {
+    let mut attrs = f.attrs.clone();
+    let mut clippy_const_path = make_punc_pathseg("clippy");
+    clippy_const_path.push(syn::PathSegment {
+        ident: ident("missing_const_for_fn"),
+        arguments: syn::PathArguments::None,
+    });
+    attrs.push(syn::Attribute {
+        pound_token: token!(Pound),
+        style: syn::AttrStyle::Outer,
+        bracket_token: delim_token!(Bracket),
+        meta: syn::Meta::List(syn::MetaList {
+            path: syn::Path {
+                leading_colon: None,
+                segments: make_punc_pathseg("allow"),
+            },
+            delimiter: syn::MacroDelimiter::Paren(delim_token!(Paren)),
+            tokens: syn::Path {
+                leading_colon: None,
+                segments: clippy_const_path,
+            }
+            .into_token_stream(),
+        }),
+    });
+    Ok(syn::ItemFn {
+        attrs: attrs,
+        vis: f.vis.clone(),
+        sig: syn::Signature {
+            constness: None,
+            asyncness: f.sig.asyncness,
+            unsafety: f.sig.unsafety,
+            abi: f.sig.abi.clone(),
+            fn_token: f.sig.fn_token,
+            ident: f.sig.ident.clone(),
+            generics: f.sig.generics.clone(),
+            paren_token: f.sig.paren_token,
+            inputs: f.sig.inputs.clone(),
+            variadic: f.sig.variadic.clone(),
+            output: f.sig.output.clone(),
+        },
+        block: Box::new(block(f.block.as_ref())?),
+    })
 }
 
 pub fn block(b: &syn::Block) -> Result<syn::Block, syn::Error> {

@@ -215,7 +215,7 @@ fn make_fn_trait_bound(
             }
         }
     }
-    Ok(make_punc(syn::TypeParamBound::Trait(syn::TraitBound {
+    let mut punc = make_punc(syn::TypeParamBound::Trait(syn::TraitBound {
         paren_token: None,
         modifier: syn::TraitBoundModifier::None,
         lifetimes: None,
@@ -230,7 +230,26 @@ fn make_fn_trait_bound(
                 }),
             }),
         },
-    })))
+    }));
+    let mut ref_unwind_safe = make_punc_pathseg("core");
+    ref_unwind_safe.push(syn::PathSegment {
+        ident: ident("panic"),
+        arguments: syn::PathArguments::None,
+    });
+    ref_unwind_safe.push(syn::PathSegment {
+        ident: ident("RefUnwindSafe"),
+        arguments: syn::PathArguments::None,
+    });
+    punc.push(syn::TypeParamBound::Trait(syn::TraitBound {
+        paren_token: None,
+        modifier: syn::TraitBoundModifier::None,
+        lifetimes: None,
+        path: syn::Path {
+            leading_colon: None,
+            segments: ref_unwind_safe,
+        },
+    }));
+    Ok(punc)
 }
 
 #[inline]

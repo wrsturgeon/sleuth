@@ -32,21 +32,13 @@ const fn id(a: u8) -> u8 {
     a
 }
 
-#[allow(
-    dead_code,
-    clippy::missing_docs_in_private_items,
-    clippy::arithmetic_side_effects
-)]
+#[allow(dead_code, clippy::missing_docs_in_private_items)]
 #[sleuth(roundtrip(sub_one, 42), !roundtrip(add_one, 42))]
 const fn add_one(x: u8) -> u8 {
     x + 1
 }
 
-#[allow(
-    dead_code,
-    clippy::missing_docs_in_private_items,
-    clippy::arithmetic_side_effects
-)]
+#[allow(dead_code, clippy::missing_docs_in_private_items)]
 #[sleuth(roundtrip(add_one, 42), !roundtrip(sub_one, 42))]
 const fn sub_one(x: u8) -> u8 {
     x - 1

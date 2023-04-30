@@ -4,10 +4,18 @@
 #[macro_export]
 macro_rules! timid_assert {
     ($cond:expr) => {
-        if !$cond {
-            Some(stringify!($cond))
-        } else {
-            None
+        match std::panic::catch_unwind(|| $cond) {
+            Ok(b) => {
+                if !b {
+                    Some(stringify!($cond))
+                } else {
+                    None
+                }
+            }
+            _ => Some(concat!(
+                stringify!($cond),
+                " PANICKED (see two lines above)"
+            )),
         }
     };
 }
@@ -16,10 +24,19 @@ macro_rules! timid_assert {
 #[macro_export]
 macro_rules! timid_assert_false {
     ($cond:expr) => {
-        if $cond {
-            Some(concat!("!", stringify!($cond)))
-        } else {
-            None
+        match std::panic::catch_unwind(|| $cond) {
+            Ok(b) => {
+                if b {
+                    Some(concat!("!", stringify!($cond)))
+                } else {
+                    None
+                }
+            }
+            _ => Some(concat!(
+                "!",
+                stringify!($cond),
+                " PANICKED (see two lines above)"
+            )),
         }
     };
 }
