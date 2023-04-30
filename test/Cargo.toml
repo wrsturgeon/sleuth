@@ -9,4 +9,4 @@ publish = false
 crate-type = ["lib"]
 
 [dependencies]
-poirot = { path = ".." }
+sleuth = { path = ".." }

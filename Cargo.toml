@@ -1,10 +1,10 @@
 [package]
-name = "poirot"
+name = "sleuth"
 version = "0.1.0"
 edition = "2021"
 description = "Extremely opinionated testing framework generating an exact specification and reducing code to its minimal implementation."
 license = "Zlib"
-repository = "https://github.com/wrsturgeon/poirot"
+repository = "https://github.com/wrsturgeon/sleuth"
 readme = "README.md"
 keywords = ["testing", "safety", "test", "compiler", "parser"]
 categories = [

@@ -19,6 +19,9 @@ const TEST_MACRO: &str = "test"; // see above, but "test" for actual builds
 /// Name of the macro that returns a potential error message without `panic`king.
 const TIMID_ASSERT_MACRO: &str = "timid_assert";
 
+/// Name of the macro that returns a potential error message ON FALSE without `panic`king.
+const TIMID_ASSERT_FALSE_MACRO: &str = "timid_assert_false";
+
 /// Make a trivial punctuated list containing only the argument provided.
 #[inline]
 fn make_punc<T, P>(v: T) -> Punctuated<T, P> {
@@ -122,7 +125,32 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
     let mut pred = None;
     let mut preds = syn::parse2::<TokenStream>(attr)?.into_iter();
     'arg_loop: while let Some(maybe_fn_name) = preds.next() {
-        let TokenTree::Ident(fn_name) = maybe_fn_name else { return Err(syn::Error::new(maybe_fn_name.span(), "Expected function name")); };
+        let (should_fail, fn_name) = match maybe_fn_name {
+            TokenTree::Ident(i) => (false, i),
+            TokenTree::Punct(ref p) => {
+                if p.as_char() == '!' {
+                    if let Some(TokenTree::Ident(i)) = preds.next() {
+                        (true, i)
+                    } else {
+                        return Err(syn::Error::new(
+                            maybe_fn_name.span(),
+                            "Expected function name",
+                        ));
+                    }
+                } else {
+                    return Err(syn::Error::new(
+                        maybe_fn_name.span(),
+                        "Expected function name",
+                    ));
+                }
+            }
+            _ => {
+                return Err(syn::Error::new(
+                    maybe_fn_name.span(),
+                    "Expected function name",
+                ))
+            }
+        };
 
         let maybe_fn_args = preds.next();
         let Some(TokenTree::Group(fn_args)) = maybe_fn_args else { return Err(syn::Error::new(maybe_fn_args.span(), "Expected function arguments")); };
@@ -146,9 +174,13 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
             ident: fn_name,
             arguments: syn::PathArguments::None,
         });
-        let mut timid_assert = make_punc_pathseg("poirot");
+        let mut timid_assert = make_punc_pathseg("sleuth");
         timid_assert.push(syn::PathSegment {
-            ident: ident(TIMID_ASSERT_MACRO),
+            ident: ident(if should_fail {
+                TIMID_ASSERT_FALSE_MACRO
+            } else {
+                TIMID_ASSERT_MACRO
+            }),
             arguments: syn::PathArguments::None,
         });
         let this_pred = syn::Expr::Macro(syn::ExprMacro {
@@ -349,12 +381,12 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
         }),
     });
 
-    let mut poirot_testify = make_punc_pathseg(crate::CRATE_NAME);
-    poirot_testify.push(syn::PathSegment {
+    let mut sleuth_testify = make_punc_pathseg(crate::CRATE_NAME);
+    sleuth_testify.push(syn::PathSegment {
         ident: ident("testify"),
         arguments: syn::PathArguments::None,
     });
-    let custom_mod = ident(&(f.sig.ident.to_string() + "_poirot"));
+    let custom_mod = ident(&(f.sig.ident.to_string() + "_sleuth"));
     let mut fn_to_test = make_punc_pathseg("super");
     fn_to_test.push(syn::PathSegment {
         ident: f.sig.ident,
@@ -399,7 +431,7 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
                         qself: None,
                         path: syn::Path {
                             leading_colon: Some(dual_token!(PathSep)),
-                            segments: poirot_testify,
+                            segments: sleuth_testify,
                         },
                     })),
                     paren_token: delim_token!(Paren),

@@ -17,12 +17,12 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Expand
-      run: rustup toolchain install nightly && cargo install cargo-expand && cd test && cargo +nightly expand --verbose
+      run: rustup toolchain install nightly && cargo install cargo-expand && cd test && cargo +nightly expand --verbose --color=always
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --verbose --color=always
     - name: Check
-      run: cargo check --verbose && cd mutator && cargo check --verbose && cd ../test && cargo check --verbose
+      run: cargo check --verbose --color=always && cd mutator && cargo check --verbose --color=always && cd ../test && cargo check --verbose --color=always
     - name: Clippy
-      run: cargo clippy --verbose && cd mutator && cargo clippy --verbose && cd ../test && cargo clippy --verbose
+      run: cargo clippy --verbose --color=always && cd mutator && cargo clippy --verbose --color=always && cd ../test && cargo clippy --verbose --color=always
     - name: Test
-      run: cargo test --verbose && cd mutator && cargo test --verbose && cd ../test && cargo test --verbose
+      run: cargo test --verbose --color=always && cd mutator && cargo test --verbose --color=always && cd ../test && cargo test --verbose --color=always

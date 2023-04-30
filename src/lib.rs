@@ -1,6 +1,6 @@
 //! Extremely opinionated testing framework generating an exact specification and reducing code to its minimal implementation.
 //! ```rust
-//! use ::poirot::poirot;
+//! use ::sleuth::sleuth;
 //!
 //! fn roundtrip<T, U, F, G>(f: F, g: G, x: T) -> bool
 //!   where
@@ -11,10 +11,10 @@
 //!   x.clone() == f(g(x))
 //! }
 //!
-//! #[poirot(roundtrip(sub_one, 1), roundtrip(sub_one, 42))]
+//! #[sleuth(roundtrip(sub_one, 42), !roundtrip(add_one, 42))]
 //! fn add_one(x: u8) -> u8 { x + 1 }
 //!
-//! #[poirot(roundtrip(add_one, 1), roundtrip(add_one, 42))]
+//! #[sleuth(roundtrip(add_one, 42), !roundtrip(sub_one, 42))]
 //! fn sub_one(x: u8) -> u8 { x - 1 }
 //! ```
 
@@ -38,6 +38,7 @@
     clippy::question_mark_used,
     clippy::string_add,
     clippy::too_many_lines,
+    clippy::wildcard_enum_match_arm,
     clippy::wildcard_imports
 )]
 #![deny(warnings)]

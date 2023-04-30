@@ -1,15 +1,15 @@
-//! Module containing properties for use in `poirot` attributes.
+//! Module containing properties for use in `sleuth` attributes.
 
 #![allow(dead_code)]
 
 /// Checks that the result of a unary function call is equal to its argument.
-pub fn does_nothing<T: PartialEq, F: Fn(&T) -> &T>(f: F, x: &T) -> bool {
-    f(x) == x
+pub fn does_nothing<T: PartialEq + Clone, F: Fn(T) -> T>(f: F, x: T) -> bool {
+    x.clone() == f(x)
 }
 
 /// Checks that the result of a unary function call is NOT equal to its argument.
-pub fn does_something<T: PartialEq, F: Fn(&T) -> &T>(f: F, x: &T) -> bool {
-    f(x) != x
+pub fn does_something<T: PartialEq + Clone, F: Fn(T) -> T>(f: F, x: T) -> bool {
+    x.clone() != f(x)
 }
 
 /// For two functions `f` & `g`, checks that `f(g(x)) == x`.
