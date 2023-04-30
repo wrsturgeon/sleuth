@@ -17,7 +17,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Expand
-      run: rustup toolchain install nightly && cargo install cargo-expand && cd test && cargo +nightly expand --verbose --color=always
+      run: # rustup toolchain install nightly && cargo install cargo-expand && cd test && cargo +nightly expand --verbose --color=always
     - name: Build
       run: cargo build --verbose --color=always
     - name: Check
