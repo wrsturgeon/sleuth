@@ -38,20 +38,22 @@ const fn id(a: u8) -> u8 {
     a
 }
 
+/// Adds one to its argument.
 #[sleuth(
     roundtrip(sub_one, 42),
     !roundtrip(add_one, 42),
 )]
-#[allow(dead_code)]
+#[allow(dead_code, clippy::arithmetic_side_effects)]
 const fn add_one(x: u8) -> u8 {
     x + 1
 }
 
+/// Subtracts one from its argument.
 #[sleuth(
     roundtrip(add_one, 42),
     !roundtrip(sub_one, 42),
 )]
-#[allow(dead_code)]
+#[allow(dead_code, clippy::arithmetic_side_effects)]
 const fn sub_one(x: u8) -> u8 {
     x - 1
 }
