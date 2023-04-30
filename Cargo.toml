@@ -13,6 +13,7 @@ categories = [
   "compilers",
   "compression",
 ]
+exclude = [".github"]
 
 [lib]
 crate-type = ["lib"]
