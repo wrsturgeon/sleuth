@@ -12,7 +12,7 @@ const FN_TYPE_NAME: &str = "_FnToCheck";
 const FN_ARG_NAME: &str = "f";
 
 /// The `#[cfg(test)]` macro, but able to be turned off for transparency with `cargo expand`.
-pub(crate) const CFG_MACRO: &str = "cfg"; // set this to "cfg" for building or to nonsense for `cargo expand`
+pub const CFG_MACRO: &str = "cfg"; // set this to "cfg" for building or to nonsense for `cargo expand`
 
 /// The `#[test]` macro, but able to be turned off for transparency with `cargo expand`.
 const TEST_MACRO: &str = "test"; // see above, but "test" for actual builds
@@ -100,7 +100,7 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
         }),
     });
     Item::Fn(syn::ItemFn {
-        attrs: attrs,
+        attrs,
         vis: f.vis,
         sig: f.sig.clone(),
         block: f.block,
