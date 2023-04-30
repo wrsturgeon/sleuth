@@ -50,7 +50,7 @@ fn call(fnname: &str, args: Punctuated<syn::Expr, syn::token::Comma>) -> syn::Ex
     })
 }
 
-/// Parse an item and return an equivalent item that can be mutated.
+/// Parse an item into an equivalent item that can be mutated.
 pub fn item(ast: &syn::Item) -> Result<syn::Item, syn::Error> {
     match ast {
         syn::Item::Fn(f) => Ok(syn::Item::Fn(function(f)?)),
@@ -58,7 +58,7 @@ pub fn item(ast: &syn::Item) -> Result<syn::Item, syn::Error> {
     }
 }
 
-/// Parse a function and return an equivalent function that can be mutated.
+/// Parse a function into an equivalent function that can be mutated.
 pub fn function(f: &syn::ItemFn) -> Result<syn::ItemFn, syn::Error> {
     let mut attrs = f.attrs.clone();
     attrs.push(syn::Attribute {
@@ -116,7 +116,7 @@ pub fn function(f: &syn::ItemFn) -> Result<syn::ItemFn, syn::Error> {
     })
 }
 
-/// Parse a block and return an equivalent block that can be mutated.
+/// Parse a block into an equivalent block that can be mutated.
 pub fn block(b: &syn::Block) -> Result<syn::Block, syn::Error> {
     let mut stmts = vec![];
     for s in &b.stmts {
@@ -128,7 +128,7 @@ pub fn block(b: &syn::Block) -> Result<syn::Block, syn::Error> {
     })
 }
 
-/// Parse a statement and return an equivalent statement that can be mutated.
+/// Parse a statement into an equivalent statement that can be mutated.
 pub fn stmt(s: &syn::Stmt) -> Result<syn::Stmt, syn::Error> {
     match s {
         syn::Stmt::Expr(e, None) => Ok(syn::Stmt::Expr(call("rtn", punctuate(expr(e)?)), None)),
@@ -136,7 +136,7 @@ pub fn stmt(s: &syn::Stmt) -> Result<syn::Stmt, syn::Error> {
     }
 }
 
-/// Parse an expression and return an equivalent expression that can be mutated.
+/// Parse an expression into an equivalent expression that can be mutated.
 pub fn expr(e: &syn::Expr) -> Result<syn::Expr, syn::Error> {
     match e {
         syn::Expr::Path(p) => Ok(call("path", punctuate(syn::Expr::Path(p.clone())))),
@@ -152,7 +152,7 @@ pub fn expr(e: &syn::Expr) -> Result<syn::Expr, syn::Error> {
     }
 }
 
-/// Parse a binary expression and return an equivalent call expression that can be mutated.
+/// Parse a binary expression into an equivalent call expression that can be mutated.
 pub fn expr_binary(e: &syn::ExprBinary) -> Result<syn::Expr, syn::Error> {
     let mut args = punctuate(expr(e.left.as_ref())?);
     args.push(expr(e.right.as_ref())?);
@@ -163,16 +163,40 @@ pub fn expr_binary(e: &syn::ExprBinary) -> Result<syn::Expr, syn::Error> {
     }
 }
 
-/// Parse a conditional (e.g. `if`) and return an equivalent call expression that can be mutated.
+/// Parse a conditional (i.e. `if`) into an equivalent call expression that can be mutated.
 pub fn cond(e: &syn::ExprIf) -> Result<syn::Expr, syn::Error> {
     let mut args = punctuate(expr(e.cond.as_ref())?);
-    args.push(syn::Expr::Block(syn::ExprBlock {
+    args.push(syn::Expr::Closure(syn::ExprClosure {
         attrs: vec![],
-        label: None,
-        block: block(&e.then_branch)?,
+        lifetimes: None,
+        constness: None,
+        movability: None,
+        asyncness: None,
+        capture: None,
+        or1_token: token!(Or),
+        inputs: Punctuated::new(),
+        or2_token: token!(Or),
+        output: syn::ReturnType::Default,
+        body: Box::new(syn::Expr::Block(syn::ExprBlock {
+            attrs: vec![],
+            label: None,
+            block: block(&e.then_branch)?,
+        })),
     }));
     if let Some((_, otherwise)) = &e.else_branch {
-        args.push(expr(otherwise.as_ref())?);
+        args.push(syn::Expr::Closure(syn::ExprClosure {
+            attrs: vec![],
+            lifetimes: None,
+            constness: None,
+            movability: None,
+            asyncness: None,
+            capture: None,
+            or1_token: token!(Or),
+            inputs: Punctuated::new(),
+            or2_token: token!(Or),
+            output: syn::ReturnType::Default,
+            body: Box::new(expr(otherwise.as_ref())?),
+        }));
     }
     Ok(call("cond", args))
 }
