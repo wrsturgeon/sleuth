@@ -21,6 +21,6 @@ crate-type = ["lib"]
 anyhow = ">=1"
 colored = ">=2"
 hashbrown = { version = ">=0.13", features = ["inline-more"] }
-mutator = { path = "mutator" }
+mutator = { version = ">=0.1.0", path = "mutator" }
 prettyplease = ">=0.2"
 syn = { version = ">=2", features = ["extra-traits", "full"] }
