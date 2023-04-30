@@ -16,7 +16,6 @@
     clippy::pub_use,
     clippy::question_mark_used,
     clippy::string_add,
-    clippy::too_many_lines,
     clippy::wildcard_enum_match_arm,
     clippy::wildcard_imports
 )]

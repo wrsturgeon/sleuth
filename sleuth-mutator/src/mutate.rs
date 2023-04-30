@@ -1,5 +1,6 @@
 //! Behind-the-scenes implementation of the publicly exported macro.
 
+use crate::{ident, make_punc, make_punc_pathseg};
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::ToTokens;
 use syn::{punctuated::Punctuated, spanned::Spanned, Expr, Item, Stmt};
@@ -22,80 +23,6 @@ const TIMID_ASSERT_MACRO: &str = "timid_assert";
 /// Name of the macro that returns a potential error message ON FALSE without `panic`king.
 const TIMID_ASSERT_FALSE_MACRO: &str = "timid_assert_false";
 
-/// Make a trivial punctuated list containing only the argument provided.
-#[inline]
-fn make_punc<T, P>(v: T) -> Punctuated<T, P> {
-    let mut punc = Punctuated::new();
-    punc.push_value(v);
-    punc
-}
-
-/// Make a trivial identifier from a string.
-#[inline]
-fn ident(s: &str) -> Ident {
-    Ident::new(s, proc_macro2::Span::call_site())
-}
-
-/// Fake span for delimiting tokens.
-macro_rules! bs_delim_span {
-    ($d:ident) => {
-        proc_macro2::Group::new(proc_macro2::Delimiter::$d, TokenStream::new()).delim_span()
-    };
-}
-
-/// Make a punctuated path segment with only one identifier.
-#[inline]
-fn make_punc_pathseg<P>(s: &str) -> Punctuated<syn::PathSegment, P> {
-    make_punc(syn::PathSegment {
-        ident: ident(s),
-        arguments: syn::PathArguments::None,
-    })
-}
-
-/// Tokens that have a vector of one span instead of one span for some reason, with a fake span for convenience.
-macro_rules! token {
-    ($t:ident) => {
-        syn::token::$t {
-            spans: [proc_macro2::Span::call_site()],
-        }
-    };
-}
-
-/// Tokens that have one span instead of a vector of one span for some reason, with a fake span for convenience.
-macro_rules! single_token {
-    ($t:ident) => {
-        syn::token::$t {
-            span: proc_macro2::Span::call_site(),
-        }
-    };
-}
-
-/// Tokens that delimit a group, with a fake span for convenience.
-macro_rules! dual_token {
-    ($t:ident) => {
-        syn::token::$t {
-            spans: [
-                proc_macro2::Span::call_site(),
-                proc_macro2::Span::call_site(),
-            ],
-        }
-    };
-}
-
-/// Tokens that delimit a group, with a fake span for convenience.
-macro_rules! delim_token {
-    (Paren) => {
-        syn::token::Paren {
-            span: bs_delim_span!(Parenthesis),
-        }
-    };
-    ($d:ident) => {
-        syn::token::$d {
-            span: bs_delim_span!($d),
-        }
-    };
-}
-
 /// Actually parse the AST and turn it into something useful.
 #[inline]
 pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStream, syn::Error> {
@@ -109,12 +36,14 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
     // Accumulator for our output AST
     let mut ts = TokenStream::new();
 
-    // Parse raw input and paste it again verbatim
+    // Parse the entire function body
     let ast: Item = syn::parse2(input)?;
-    ast.to_tokens(&mut ts);
+
+    // Replace the original function definition with an equivalent callable struct that makes the AST explicit
+    crate::x::parse::item(&ast)?.to_tokens(&mut ts);
 
     // Make sure this macro is applied to a function & get the function's AST
-    let Item::Fn(f) = ast else { return Err(syn::Error::new(ast.span(), "This macro can be applied only to functions")); };
+    let Item::Fn( f) = ast else { return Err(syn::Error::new(ast.span(), "This macro can be applied only to functions")); };
     if f.sig.unsafety.is_some() {
         return Err(syn::Error::new(
             f.sig.unsafety.span(),
@@ -122,6 +51,22 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
         ));
     }
 
+    // Make a #[cfg(test)] module with a checker (that doesn't panic and isn't a test) and a test (that calls the checker)
+    make_fn_specific_module(
+        ident(&(f.sig.ident.to_string() + "_sleuth")),
+        make_checker(
+            single_predicate_from_arguments(attr)?,
+            make_fn_trait_bound(f.sig.inputs, f.sig.output)?,
+        ),
+        make_test(f.sig.ident),
+    )
+    .to_tokens(&mut ts);
+
+    Ok(ts)
+}
+
+#[inline]
+fn single_predicate_from_arguments(attr: TokenStream) -> Result<Expr, syn::Error> {
     let mut pred = None;
     let mut preds = syn::parse2::<TokenStream>(attr)?.into_iter();
     'arg_loop: while let Some(maybe_fn_name) = preds.next() {
@@ -246,8 +191,19 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
         }
     }
 
+    pred.ok_or(syn::Error::new(
+        proc_macro2::Span::call_site(),
+        "No predicates supplied to the macro attribute",
+    ))
+}
+
+#[inline]
+fn make_fn_trait_bound(
+    parsed_fn_inputs: Punctuated<syn::FnArg, syn::token::Comma>,
+    parsed_fn_output: syn::ReturnType,
+) -> Result<Punctuated<syn::TypeParamBound, syn::token::Plus>, syn::Error> {
     let mut input_types = Punctuated::new();
-    for arg in f.sig.inputs {
+    for arg in parsed_fn_inputs {
         match arg {
             #![allow(clippy::match_wildcard_for_single_variants)]
             syn::FnArg::Typed(t) => input_types.push(*t.ty),
@@ -259,7 +215,7 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
             }
         }
     }
-    let fn_once_bound = make_punc(syn::TypeParamBound::Trait(syn::TraitBound {
+    Ok(make_punc(syn::TypeParamBound::Trait(syn::TraitBound {
         paren_token: None,
         modifier: syn::TraitBoundModifier::None,
         lifetimes: None,
@@ -270,13 +226,19 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
                 arguments: syn::PathArguments::Parenthesized(syn::ParenthesizedGenericArguments {
                     paren_token: delim_token!(Paren),
                     inputs: input_types,
-                    output: f.sig.output,
+                    output: parsed_fn_output,
                 }),
             }),
         },
-    }));
+    })))
+}
 
-    let check_fn = syn::Item::Fn(syn::ItemFn {
+#[inline]
+fn make_checker(
+    pred: Expr,
+    fn_trait_bound: Punctuated<syn::TypeParamBound, syn::token::Plus>,
+) -> Item {
+    syn::Item::Fn(syn::ItemFn {
         attrs: vec![syn::Attribute {
             pound_token: token!(Pound),
             style: syn::AttrStyle::Outer,
@@ -304,7 +266,7 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
                     attrs: vec![],
                     ident: ident(FN_TYPE_NAME),
                     colon_token: Some(token!(Colon)),
-                    bounds: fn_once_bound,
+                    bounds: fn_trait_bound,
                     eq_token: None,
                     default: None,
                 })),
@@ -373,26 +335,24 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
         },
         block: Box::new(syn::Block {
             brace_token: delim_token!(Brace),
-            stmts: vec![Stmt::Expr(
-                #[allow(clippy::unwrap_used)]
-                pred.unwrap(),
-                None,
-            )],
+            stmts: vec![Stmt::Expr(pred, None)],
         }),
-    });
+    })
+}
 
+#[inline]
+fn make_test(parsed_fn_sig_ident: Ident) -> Item {
     let mut sleuth_testify = make_punc_pathseg(crate::CRATE_NAME);
     sleuth_testify.push(syn::PathSegment {
         ident: ident("testify"),
         arguments: syn::PathArguments::None,
     });
-    let custom_mod = ident(&(f.sig.ident.to_string() + "_sleuth"));
     let mut fn_to_test = make_punc_pathseg("super");
     fn_to_test.push(syn::PathSegment {
-        ident: f.sig.ident,
+        ident: parsed_fn_sig_ident,
         arguments: syn::PathArguments::None,
     });
-    let test_fn = Item::Fn(syn::ItemFn {
+    Item::Fn(syn::ItemFn {
         attrs: vec![syn::Attribute {
             pound_token: token!(Pound),
             style: syn::AttrStyle::Outer,
@@ -464,8 +424,11 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
                 None,
             )],
         }),
-    });
+    })
+}
 
+#[inline]
+fn make_fn_specific_module(mod_ident: Ident, check_fn: Item, test_fn: Item) -> Item {
     syn::Item::Mod(syn::ItemMod {
         attrs: vec![syn::Attribute {
             pound_token: token!(Pound),
@@ -483,7 +446,7 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
         vis: syn::Visibility::Inherited,
         unsafety: None,
         mod_token: single_token!(Mod),
-        ident: custom_mod,
+        ident: mod_ident,
         content: Some((
             delim_token!(Brace),
             vec![
@@ -507,7 +470,4 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
         )),
         semi: None,
     })
-    .to_tokens(&mut ts);
-
-    Ok(ts)
 }

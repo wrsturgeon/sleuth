@@ -37,14 +37,16 @@
     clippy::pub_use,
     clippy::question_mark_used,
     clippy::string_add,
-    clippy::too_many_lines,
     clippy::wildcard_enum_match_arm,
     clippy::wildcard_imports
 )]
 #![deny(warnings)]
 
+pub mod f;
+
 mod util;
 
+pub use sleuth_mutator as mutator;
 pub use sleuth_mutator::*;
 
 /// Turns the output of a `timid_assert!` into a test.
