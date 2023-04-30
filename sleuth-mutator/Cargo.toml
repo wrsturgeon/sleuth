@@ -3,11 +3,17 @@ name = "sleuth-mutator"
 version = "0.1.0"
 edition = "2021"
 authors = ["Will Sturgeon <willstrgn@gmail.com>"]
+description = "A single `proc_macro_attribute` used in the `sleuth` crate."
+license = "Zlib"
+repository = "https://github.com/wrsturgeon/sleuth"
+readme = "README.md"
+keywords = ["macro"]
+categories = ["development-tools::procedural-macro-helpers"]
 
 [dependencies]
-proc-macro2 = "*"
-syn = { version = "*", features = ["extra-traits", "full"] }
-quote = "*"
+proc-macro2 = ">=1"
+syn = { version = ">=2", features = ["extra-traits", "full"] }
+quote = ">=1"
 
 [lib]
 proc-macro = true
