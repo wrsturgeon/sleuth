@@ -2,9 +2,9 @@
 *.DS_Store
 
 /target
-/mutator/target
+/sleuth-mutator/target
 /test/target
 
 /Cargo.lock
-/mutator/Cargo.lock
+/sleuth-mutator/Cargo.lock
 /test/Cargo.lock
