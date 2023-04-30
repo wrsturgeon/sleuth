@@ -1,6 +1,12 @@
 //! Utilities for consuming a usual function and spitting out an AST-aligned representation we can mutate later.
 
-#![allow(dead_code, unreachable_code)] // TODO: remove
+#![allow(
+    dead_code,
+    unreachable_code,
+    clippy::todo,
+    clippy::diverging_sub_expression,
+    clippy::panic_in_result_fn
+)] // TODO: remove
 
 use crate::{expr_path, ident, path, pathseg, punctuate};
 use syn::{punctuated::Punctuated, spanned::Spanned};
@@ -49,13 +55,13 @@ fn call(fnname: &str, args: Punctuated<syn::Expr, syn::token::Comma>) -> syn::Ex
 }
 
 /// Parse a function into an equivalent function that can be mutated.
-pub fn function(f: &syn::ItemFn) -> Result<(syn::Type, syn::Expr), syn::Error> {
+pub fn function(f: &syn::ItemFn) -> (syn::Type, syn::Expr) {
     block(f.block.as_ref())
 }
 
 /// Parse a block into an equivalent block that can be mutated.
-pub fn block(b: &syn::Block) -> Result<(syn::Type, syn::Expr), syn::Error> {
-    let (stmt_type, stmt_init) = statements(&b.stmts)?;
+pub fn block(b: &syn::Block) -> (syn::Type, syn::Expr) {
+    let (stmt_type, stmt_init) = statements(&b.stmts);
     let mut sleuth_expr_init = punctuate(pathseg(ident(crate::CRATE_NAME)));
     sleuth_expr_init.push(pathseg(ident("expr")));
     sleuth_expr_init.push(pathseg(ident("Block")));
@@ -70,7 +76,7 @@ pub fn block(b: &syn::Block) -> Result<(syn::Type, syn::Expr), syn::Error> {
             gt_token: token!(Gt),
         }),
     });
-    Ok((
+    (
         syn::Type::Path(syn::TypePath {
             qself: None,
             path: path(true, sleuth_expr_type),
@@ -81,10 +87,11 @@ pub fn block(b: &syn::Block) -> Result<(syn::Type, syn::Expr), syn::Error> {
             paren_token: delim_token!(Paren),
             args: punctuate(stmt_init),
         }),
-    ))
+    )
 }
 
-pub fn statements(_stmts: &Vec<syn::Stmt>) -> Result<(syn::Type, syn::Expr), syn::Error> {
+/// Parse a set of statements.
+pub fn statements(_stmts: &[syn::Stmt]) -> (syn::Type, syn::Expr) {
     let mut end = punctuate(pathseg(ident(crate::CRATE_NAME)));
     end.push(pathseg(ident("expr")));
     end.push(pathseg(ident("EndOfBlock")));
@@ -114,7 +121,7 @@ pub fn statements(_stmts: &Vec<syn::Stmt>) -> Result<(syn::Type, syn::Expr), syn
     //     }),
     //     expr_path(false,punctuate(pathseg(ident("false")))),
     // ))
-    Ok((rtype, rexpr))
+    (rtype, rexpr)
 }
 
 /// Parse a statement into an equivalent statement that can be mutated.

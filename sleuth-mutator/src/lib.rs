@@ -12,6 +12,7 @@
 )]
 #![allow(
     clippy::blanket_clippy_restriction_lints,
+    clippy::exhaustive_structs,
     clippy::implicit_return,
     clippy::integer_arithmetic,
     clippy::mod_module_files,
@@ -115,11 +116,7 @@ fn path(
     punc: syn::punctuated::Punctuated<syn::PathSegment, syn::token::PathSep>,
 ) -> syn::Path {
     syn::Path {
-        leading_colon: if leading {
-            Some(dual_token!(PathSep))
-        } else {
-            None
-        },
+        leading_colon: leading.then(|| dual_token!(PathSep)),
         segments: punc,
     }
 }

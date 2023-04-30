@@ -11,6 +11,7 @@
 )]
 #![allow(
     clippy::blanket_clippy_restriction_lints,
+    clippy::exhaustive_structs,
     clippy::implicit_return,
     clippy::integer_arithmetic,
     clippy::mod_module_files,

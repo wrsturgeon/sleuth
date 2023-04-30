@@ -12,6 +12,7 @@ pub trait Expr {
 pub struct Block<T: StatementNode>(pub T);
 impl<T: StatementNode> Expr for Block<T> {
     const COMPLEXITY: usize = T::COMPLEXITY;
+    #[inline]
     fn mutate<F, C: Fn(F) -> Option<&'static str>>(&self, _check: C) -> Option<&'static str> {
         Some("unimplemented")
     }
@@ -24,6 +25,7 @@ pub trait StatementNode: Expr {}
 pub struct EndOfBlock;
 impl Expr for EndOfBlock {
     const COMPLEXITY: usize = 0;
+    #[inline]
     fn mutate<F, C: Fn(F) -> Option<&'static str>>(&self, _check: C) -> Option<&'static str> {
         Some("unimplemented")
     }
@@ -34,6 +36,7 @@ impl StatementNode for EndOfBlock {}
 pub struct StatementList<S: Expr, NextStatement: StatementNode>(pub S, pub NextStatement);
 impl<S: Expr, NextStatement: StatementNode> Expr for StatementList<S, NextStatement> {
     const COMPLEXITY: usize = S::COMPLEXITY + NextStatement::COMPLEXITY;
+    #[inline]
     fn mutate<F, C: Fn(F) -> Option<&'static str>>(&self, _check: C) -> Option<&'static str> {
         Some("unimplemented")
     }
@@ -47,6 +50,7 @@ pub struct Statement;
 pub struct Literal<T>(T);
 impl<T> Expr for Literal<T> {
     const COMPLEXITY: usize = 1;
+    #[inline]
     fn mutate<F, C: Fn(F) -> Option<&'static str>>(&self, _check: C) -> Option<&'static str> {
         Some("unimplemented")
     }
