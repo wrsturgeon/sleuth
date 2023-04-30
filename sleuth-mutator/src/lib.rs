@@ -77,7 +77,7 @@ macro_rules! delim_token {
 }
 
 mod mutate;
-mod x;
+mod parse;
 
 /// The name of this crate. Just in case.
 const CRATE_NAME: &str = "sleuth";
@@ -93,6 +93,35 @@ pub fn sleuth(
         Err(e) => e.to_compile_error(),
     }
     .into()
+}
+
+/// Make a trivial expression holding a path with or without a leading separator (`::`).
+#[inline]
+fn expr_path(
+    leading: bool,
+    punc: syn::punctuated::Punctuated<syn::PathSegment, syn::token::PathSep>,
+) -> syn::Expr {
+    syn::Expr::Path(syn::ExprPath {
+        attrs: vec![],
+        qself: None,
+        path: path(leading, punc),
+    })
+}
+
+/// Make a trivial path with or without a leading separator (`::`).
+#[inline]
+fn path(
+    leading: bool,
+    punc: syn::punctuated::Punctuated<syn::PathSegment, syn::token::PathSep>,
+) -> syn::Path {
+    syn::Path {
+        leading_colon: if leading {
+            Some(dual_token!(PathSep))
+        } else {
+            None
+        },
+        segments: punc,
+    }
 }
 
 /// Make a trivial punctuated list containing only the argument provided.

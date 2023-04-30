@@ -54,10 +54,11 @@
 )]
 #![deny(warnings)]
 
-pub mod f;
+pub mod expr;
 
 mod util;
 
+pub use expr::Expr;
 pub use sleuth_mutator as mutator;
 pub use sleuth_mutator::*;
 
@@ -65,7 +66,7 @@ pub use sleuth_mutator::*;
 /// # Panics
 /// When given an argument that is not `None` (with almost exactly the message given).
 #[inline]
-pub fn testify(check_output: Option<&str>) {
+pub fn testify(check_output: Option<&'static str>) {
     #![allow(clippy::panic)]
     use colored::Colorize;
     let _: Option<()> = check_output.and_then(|e| {

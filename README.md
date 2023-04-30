@@ -54,4 +54,75 @@ fn is_true(b: bool) -> bool {
     b
 }
 ```
-which usual mutation testing could never (and doesn't aim to) fix.
+which usual mutation testing could never (and doesn't aim to) fix. Clippy can currently fix trivial errors like these on a whitelisted basis, but this library aims to eliminate the whole class of errors from the bottom up rather than playing whack-a-mole.
+
+## How it Works
+
+Given a function like this,
+```rust
+#[sleuth(
+    does_nothing(false),
+    does_nothing(true),
+)]
+const fn is_true(b: bool) -> bool {
+    if b { true } else { false }
+}
+```
+the `sleuth` attribute rewrites it at compile time as the following:
+```rust
+const fn is_true(b: bool) -> bool {
+    if b { true } else { false }
+}
+
+#[cfg(test)]
+mod is_true_sleuth {
+    use super::*;
+
+    type Ast = ::sleuth::expr::...;
+    const AST: Ast = ::sleuth::expr::...;
+
+    #[inline(always)]
+    pub fn check<_FnToCheck>(f: &_FnToCheck) -> Option<&'static str>
+      where
+        _FnToCheck: Fn(bool) -> bool + ::core::panic::RefUnwindSafe
+    {
+        match std::panic::catch_unwind(|| crate::sleuth::does_nothing(f, false)) {
+            Ok(b) => {
+                if !b { Some("crate::sleuth::does_nothing(f, false)") } else { None }
+            }
+            _ => {
+                Some(
+                    "crate::sleuth::does_nothing(f, false) PANICKED (see two lines above)",
+                )
+            }
+        }
+            .or_else(|| match std::panic::catch_unwind(|| crate::sleuth::does_nothing(
+                f,
+                true,
+            )) {
+                Ok(b) => {
+                    if !b { Some("crate::sleuth::does_nothing(f, true)") } else { None }
+                }
+                _ => {
+                    Some(
+                        "crate::sleuth::does_nothing(f, true) PANICKED (see two lines above)",
+                    )
+                }
+            })
+    }
+
+    #[test]
+    fn test_original() {
+        ::sleuth::testify(check(&is_true))
+    }
+    
+    #[test]
+    fn test_mutants() {
+        use ::sleuth::Expr;
+        for mutation_severity in 0..AST::COMPLEXITY {
+            // very long, not yet complete
+        }
+    }
+}
+```
+Note that unless we're testing, the macro has _no effect_. It should be safe to use, even in production-level code.
