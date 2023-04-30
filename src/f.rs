@@ -40,7 +40,7 @@ where
 
 /// Branch/conditional (i.e. `if`).
 #[inline]
-pub fn cond<T>(c: bool, then: T, otherwise: T) -> T {
+pub const fn cond<T>(c: bool, then: T, otherwise: T) -> T {
     if c {
         then
     } else {
