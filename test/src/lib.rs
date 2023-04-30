@@ -57,3 +57,14 @@ const fn add_one(x: u8) -> u8 {
 const fn sub_one(x: u8) -> u8 {
     x - 1
 }
+
+/// Stupid function one might write on a lack of sleep (not that I would currently know anything about that)
+#[sleuth(does_nothing(false), does_nothing(true))]
+#[allow(dead_code)]
+const fn is_true(b: bool) -> bool {
+    if b {
+        true
+    } else {
+        false
+    }
+}

@@ -131,14 +131,7 @@ pub fn block(b: &syn::Block) -> Result<syn::Block, syn::Error> {
 /// Parse a statement and return an equivalent statement that can be mutated.
 pub fn stmt(s: &syn::Stmt) -> Result<syn::Stmt, syn::Error> {
     match s {
-        syn::Stmt::Expr(e, None) => Ok(syn::Stmt::Expr(
-            syn::Expr::Return(syn::ExprReturn {
-                attrs: vec![],
-                return_token: single_token!(Return),
-                expr: Some(Box::new(call("rtn", punctuate(expr(e)?)))),
-            }),
-            Some(token!(Semi)),
-        )),
+        syn::Stmt::Expr(e, None) => Ok(syn::Stmt::Expr(call("rtn", punctuate(expr(e)?)), None)),
         _ => community_input!(s),
     }
 }
@@ -149,6 +142,12 @@ pub fn expr(e: &syn::Expr) -> Result<syn::Expr, syn::Error> {
         syn::Expr::Path(p) => Ok(call("path", punctuate(syn::Expr::Path(p.clone())))),
         syn::Expr::Lit(li) => Ok(call("literal", punctuate(syn::Expr::Lit(li.clone())))),
         syn::Expr::Binary(b) => expr_binary(b),
+        syn::Expr::If(i) => cond(i),
+        syn::Expr::Block(b) => Ok(syn::Expr::Block(syn::ExprBlock {
+            attrs: b.attrs.clone(),
+            label: b.label.clone(),
+            block: block(&b.block)?,
+        })),
         _ => community_input!(e),
     }
 }
@@ -162,4 +161,18 @@ pub fn expr_binary(e: &syn::ExprBinary) -> Result<syn::Expr, syn::Error> {
         syn::BinOp::Sub(_) => Ok(call("sub", args)),
         _ => community_input!(e),
     }
+}
+
+/// Parse a conditional (e.g. `if`) and return an equivalent call expression that can be mutated.
+pub fn cond(e: &syn::ExprIf) -> Result<syn::Expr, syn::Error> {
+    let mut args = punctuate(expr(e.cond.as_ref())?);
+    args.push(syn::Expr::Block(syn::ExprBlock {
+        attrs: vec![],
+        label: None,
+        block: block(&e.then_branch)?,
+    }));
+    if let Some((_, otherwise)) = &e.else_branch {
+        args.push(expr(otherwise.as_ref())?);
+    }
+    Ok(call("cond", args))
 }
