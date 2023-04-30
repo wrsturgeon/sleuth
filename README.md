@@ -30,15 +30,15 @@ fn sub_one(x: u8) -> u8 { x - 1 }
 Note a few things:
 - `roundtrip` returns a bool to indicate success or failure instead of `panic`king like a usual test.
 - The `sleuth` attribute takes a function with its first argument missing (here, `roundtrip` without `f`), and that argument is filled in at compile time with the function the attribute is applied to (here, `add_one` and `sub_one`).
-- We don't spam `roundtrip` with a bunch of random inputs (though you can do that separately!). Instead, you choose your inputs (here, `0` and `42`), and the library helps you find the minimal set that knocks out all mutations.
+- We don't spam `roundtrip` with a bunch of random inputs (though you can do that separately!). Instead, you choose your inputs (here, `42` both times), and the library helps you find the minimal set that knocks out all mutations.
 
-The library is still under development—I'm an undergrad with a chronic lack of free time—but currently, it can run a test suite of properties like above, and fairly soon it should be able to handle cases like the following:
+The library is still under development—I'm an undergrad with a chronic lack of free time—but currently, it can run a test suite of properties like above, and fairly soon it should be able to reduce common cases like the following:
 ```rust
 fn is_true(b: bool) -> bool {
     if b { true } else { false }
 }
 ```
-should very quickly become
+to their minimal implementations:
 ```rust
 fn is_true(b: bool) -> bool {
     b
