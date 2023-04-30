@@ -10,3 +10,4 @@ crate-type = ["lib"]
 
 [dependencies]
 sleuth = { path = ".." }
+# sleuth = "*"
