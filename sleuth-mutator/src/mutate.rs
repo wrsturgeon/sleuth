@@ -1,6 +1,6 @@
 //! Behind-the-scenes implementation of the publicly exported macro.
 
-use crate::{ident, make_punc, make_punc_pathseg};
+use crate::{ident, make_punc, pathseg};
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::ToTokens;
 use syn::{punctuated::Punctuated, spanned::Spanned, Expr, Item, Stmt};
@@ -65,6 +65,8 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
     Ok(ts)
 }
 
+/// Fold all arguments into a call that will calmly return the error message (not panic!) for the first check to fail.
+#[allow(clippy::too_many_lines)]
 #[inline]
 fn single_predicate_from_arguments(attr: TokenStream) -> Result<Expr, syn::Error> {
     let mut pred = None;
@@ -105,29 +107,20 @@ fn single_predicate_from_arguments(attr: TokenStream) -> Result<Expr, syn::Error
             qself: None,
             path: syn::Path {
                 leading_colon: None,
-                segments: make_punc_pathseg(FN_ARG_NAME),
+                segments: make_punc(pathseg(ident(FN_ARG_NAME))),
             },
         }));
         punc_args.push(Expr::Verbatim(fn_args.stream()));
 
-        let mut fn_path = make_punc_pathseg("crate");
-        fn_path.push(syn::PathSegment {
-            ident: ident(crate::CRATE_NAME),
-            arguments: syn::PathArguments::None,
-        });
-        fn_path.push(syn::PathSegment {
-            ident: fn_name,
-            arguments: syn::PathArguments::None,
-        });
-        let mut timid_assert = make_punc_pathseg("sleuth");
-        timid_assert.push(syn::PathSegment {
-            ident: ident(if should_fail {
-                TIMID_ASSERT_FALSE_MACRO
-            } else {
-                TIMID_ASSERT_MACRO
-            }),
-            arguments: syn::PathArguments::None,
-        });
+        let mut fn_path = make_punc(pathseg(ident("crate")));
+        fn_path.push(pathseg(ident(crate::CRATE_NAME)));
+        fn_path.push(pathseg(fn_name));
+        let mut timid_assert = make_punc(pathseg(ident("sleuth")));
+        timid_assert.push(pathseg(ident(if should_fail {
+            TIMID_ASSERT_FALSE_MACRO
+        } else {
+            TIMID_ASSERT_MACRO
+        })));
         let this_pred = syn::Expr::Macro(syn::ExprMacro {
             attrs: vec![],
             mac: syn::Macro {
@@ -191,12 +184,15 @@ fn single_predicate_from_arguments(attr: TokenStream) -> Result<Expr, syn::Error
         }
     }
 
-    pred.ok_or(syn::Error::new(
-        proc_macro2::Span::call_site(),
-        "No predicates supplied to the macro attribute",
-    ))
+    pred.ok_or_else(|| {
+        syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "No predicates supplied to the macro attribute",
+        )
+    })
 }
 
+/// Constructs a `Fn` trait to match the signature of the function this attribute was applied to.
 #[inline]
 fn make_fn_trait_bound(
     parsed_fn_inputs: Punctuated<syn::FnArg, syn::token::Comma>,
@@ -231,15 +227,9 @@ fn make_fn_trait_bound(
             }),
         },
     }));
-    let mut ref_unwind_safe = make_punc_pathseg("core");
-    ref_unwind_safe.push(syn::PathSegment {
-        ident: ident("panic"),
-        arguments: syn::PathArguments::None,
-    });
-    ref_unwind_safe.push(syn::PathSegment {
-        ident: ident("RefUnwindSafe"),
-        arguments: syn::PathArguments::None,
-    });
+    let mut ref_unwind_safe = make_punc(pathseg(ident("core")));
+    ref_unwind_safe.push(pathseg(ident("panic")));
+    ref_unwind_safe.push(pathseg(ident("RefUnwindSafe")));
     punc.push(syn::TypeParamBound::Trait(syn::TraitBound {
         paren_token: None,
         modifier: syn::TraitBoundModifier::None,
@@ -252,6 +242,7 @@ fn make_fn_trait_bound(
     Ok(punc)
 }
 
+/// Builds a function that checks, without panicking, whether all the given checks hold.
 #[inline]
 fn make_checker(
     pred: Expr,
@@ -265,7 +256,7 @@ fn make_checker(
             meta: syn::Meta::List(syn::MetaList {
                 path: syn::Path {
                     leading_colon: None,
-                    segments: make_punc_pathseg("inline"),
+                    segments: make_punc(pathseg(ident("inline"))),
                 },
                 delimiter: syn::MacroDelimiter::Paren(delim_token!(Paren)),
                 tokens: ident("always").into_token_stream(),
@@ -300,7 +291,7 @@ fn make_checker(
                     qself: None,
                     path: syn::Path {
                         leading_colon: None,
-                        segments: make_punc_pathseg(FN_ARG_NAME),
+                        segments: make_punc(pathseg(ident(FN_ARG_NAME))),
                     },
                 })),
                 colon_token: token!(Colon),
@@ -312,7 +303,7 @@ fn make_checker(
                         qself: None,
                         path: syn::Path {
                             leading_colon: None,
-                            segments: make_punc_pathseg(FN_TYPE_NAME),
+                            segments: make_punc(pathseg(ident(FN_TYPE_NAME))),
                         },
                     })),
                 })),
@@ -339,7 +330,7 @@ fn make_checker(
                                                 qself: None,
                                                 path: syn::Path {
                                                     leading_colon: None,
-                                                    segments: make_punc_pathseg("str"),
+                                                    segments: make_punc(pathseg(ident("str"))),
                                                 },
                                             })),
                                         }),
@@ -359,18 +350,13 @@ fn make_checker(
     })
 }
 
+/// Builds a test that panics if all the given checks don't hold.
 #[inline]
 fn make_test(parsed_fn_sig_ident: Ident) -> Item {
-    let mut sleuth_testify = make_punc_pathseg(crate::CRATE_NAME);
-    sleuth_testify.push(syn::PathSegment {
-        ident: ident("testify"),
-        arguments: syn::PathArguments::None,
-    });
-    let mut fn_to_test = make_punc_pathseg("super");
-    fn_to_test.push(syn::PathSegment {
-        ident: parsed_fn_sig_ident,
-        arguments: syn::PathArguments::None,
-    });
+    let mut sleuth_testify = make_punc(pathseg(ident(crate::CRATE_NAME)));
+    sleuth_testify.push(pathseg(ident("testify")));
+    let mut fn_to_test = make_punc(pathseg(ident("super")));
+    fn_to_test.push(pathseg(parsed_fn_sig_ident));
     Item::Fn(syn::ItemFn {
         attrs: vec![syn::Attribute {
             pound_token: token!(Pound),
@@ -378,7 +364,7 @@ fn make_test(parsed_fn_sig_ident: Ident) -> Item {
             bracket_token: delim_token!(Bracket),
             meta: syn::Meta::Path(syn::Path {
                 leading_colon: None,
-                segments: make_punc_pathseg(TEST_MACRO),
+                segments: make_punc(pathseg(ident(TEST_MACRO))),
             }),
         }],
         vis: syn::Visibility::Inherited,
@@ -421,7 +407,7 @@ fn make_test(parsed_fn_sig_ident: Ident) -> Item {
                             qself: None,
                             path: syn::Path {
                                 leading_colon: None,
-                                segments: make_punc_pathseg("check"),
+                                segments: make_punc(pathseg(ident("check"))),
                             },
                         })),
                         paren_token: delim_token!(Paren),
@@ -446,6 +432,7 @@ fn make_test(parsed_fn_sig_ident: Ident) -> Item {
     })
 }
 
+/// Builds a module with a non-panicking checker and a test using the former to know when to panic.
 #[inline]
 fn make_fn_specific_module(mod_ident: Ident, check_fn: Item, test_fn: Item) -> Item {
     syn::Item::Mod(syn::ItemMod {
@@ -456,7 +443,7 @@ fn make_fn_specific_module(mod_ident: Ident, check_fn: Item, test_fn: Item) -> I
             meta: syn::Meta::List(syn::MetaList {
                 path: syn::Path {
                     leading_colon: None,
-                    segments: make_punc_pathseg(CFG_MACRO),
+                    segments: make_punc(pathseg(ident(CFG_MACRO))),
                 },
                 delimiter: syn::MacroDelimiter::Paren(delim_token!(Paren)),
                 tokens: ident("test").into_token_stream(),

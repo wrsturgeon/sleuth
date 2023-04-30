@@ -14,6 +14,8 @@
     clippy::blanket_clippy_restriction_lints,
     clippy::implicit_return,
     clippy::integer_arithmetic,
+    clippy::mod_module_files,
+    clippy::pattern_type_mismatch,
     clippy::pub_use,
     clippy::question_mark_used,
     clippy::string_add,
@@ -107,11 +109,11 @@ fn ident(s: &str) -> syn::Ident {
     syn::Ident::new(s, proc_macro2::Span::call_site())
 }
 
-/// Make a punctuated path segment with only one identifier.
+/// Make a path segment with only one argument (not really a path, but a singleton, sure).
 #[inline]
-fn make_punc_pathseg<P>(s: &str) -> syn::punctuated::Punctuated<syn::PathSegment, P> {
-    make_punc(syn::PathSegment {
-        ident: ident(s),
+const fn pathseg(fn_name: syn::Ident) -> syn::PathSegment {
+    syn::PathSegment {
+        ident: fn_name,
         arguments: syn::PathArguments::None,
-    })
+    }
 }

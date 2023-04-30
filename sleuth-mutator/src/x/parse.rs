@@ -1,15 +1,17 @@
 //! Utilities for consuming a usual function and spitting out an AST-aligned representation we can mutate later.
 
-use crate::{ident, make_punc, make_punc_pathseg};
+use crate::{ident, make_punc, pathseg};
 use quote::ToTokens;
 use syn::{punctuated::Punctuated, spanned::Spanned};
 
+/// Ask *you* for your contributions!
 macro_rules! community_input {
     ($arg:expr) => {
         return Err(syn::Error::new($arg.span(), format!("Sleuth doesn't know how to handle this case yet, but we'd love your help! If you're interested, please look into what went wrong and open a PR.\r\nFailed at {}:{}\r\n{} = {:#?}", file!(), line!(), stringify!($arg), $arg)))
     };
 }
 
+/// Call one of our in-house functions mimicking an AST node.
 #[inline]
 fn ast_fn_expr(fnname: &str) -> syn::Expr {
     syn::Expr::Path(syn::ExprPath {
@@ -19,9 +21,10 @@ fn ast_fn_expr(fnname: &str) -> syn::Expr {
     })
 }
 
+/// Call one of our in-house functions mimicking an AST node.
 #[inline]
 fn ast_fn(fnname: &str) -> syn::Path {
-    let mut ps = make_punc_pathseg("sleuth");
+    let mut ps = make_punc(pathseg(ident("sleuth")));
     ps.push(syn::PathSegment {
         ident: ident("f"),
         arguments: syn::PathArguments::None,
@@ -36,6 +39,7 @@ fn ast_fn(fnname: &str) -> syn::Path {
     }
 }
 
+/// Call one of our in-house functions mimicking an AST node.
 #[inline]
 fn call(fnname: &str, args: Punctuated<syn::Expr, syn::token::Comma>) -> syn::Expr {
     syn::Expr::Call(syn::ExprCall {
@@ -46,6 +50,7 @@ fn call(fnname: &str, args: Punctuated<syn::Expr, syn::token::Comma>) -> syn::Ex
     })
 }
 
+/// Parse an item and return an equivalent item that can be mutated.
 pub fn item(ast: &syn::Item) -> Result<syn::Item, syn::Error> {
     match ast {
         syn::Item::Fn(f) => Ok(syn::Item::Fn(function(f)?)),
@@ -53,9 +58,10 @@ pub fn item(ast: &syn::Item) -> Result<syn::Item, syn::Error> {
     }
 }
 
+/// Parse a function and return an equivalent function that can be mutated.
 pub fn function(f: &syn::ItemFn) -> Result<syn::ItemFn, syn::Error> {
     let mut attrs = f.attrs.clone();
-    let mut clippy_const_path = make_punc_pathseg("clippy");
+    let mut clippy_const_path = make_punc(pathseg(ident("clippy")));
     clippy_const_path.push(syn::PathSegment {
         ident: ident("missing_const_for_fn"),
         arguments: syn::PathArguments::None,
@@ -67,7 +73,7 @@ pub fn function(f: &syn::ItemFn) -> Result<syn::ItemFn, syn::Error> {
         meta: syn::Meta::List(syn::MetaList {
             path: syn::Path {
                 leading_colon: None,
-                segments: make_punc_pathseg("allow"),
+                segments: make_punc(pathseg(ident("allow"))),
             },
             delimiter: syn::MacroDelimiter::Paren(delim_token!(Paren)),
             tokens: syn::Path {
@@ -78,7 +84,7 @@ pub fn function(f: &syn::ItemFn) -> Result<syn::ItemFn, syn::Error> {
         }),
     });
     Ok(syn::ItemFn {
-        attrs: attrs,
+        attrs,
         vis: f.vis.clone(),
         sig: syn::Signature {
             constness: None,
@@ -97,17 +103,19 @@ pub fn function(f: &syn::ItemFn) -> Result<syn::ItemFn, syn::Error> {
     })
 }
 
+/// Parse a block and return an equivalent block that can be mutated.
 pub fn block(b: &syn::Block) -> Result<syn::Block, syn::Error> {
     let mut stmts = vec![];
     for s in &b.stmts {
         stmts.push(stmt(s)?);
     }
     Ok(syn::Block {
-        brace_token: b.brace_token.clone(),
+        brace_token: b.brace_token,
         stmts,
     })
 }
 
+/// Parse a statement and return an equivalent statement that can be mutated.
 pub fn stmt(s: &syn::Stmt) -> Result<syn::Stmt, syn::Error> {
     match s {
         syn::Stmt::Expr(e, None) => Ok(syn::Stmt::Expr(
@@ -122,6 +130,7 @@ pub fn stmt(s: &syn::Stmt) -> Result<syn::Stmt, syn::Error> {
     }
 }
 
+/// Parse an expression and return an equivalent expression that can be mutated.
 pub fn expr(e: &syn::Expr) -> Result<syn::Expr, syn::Error> {
     match e {
         syn::Expr::Path(p) => Ok(call("path", make_punc(syn::Expr::Path(p.clone())))),
@@ -131,6 +140,7 @@ pub fn expr(e: &syn::Expr) -> Result<syn::Expr, syn::Error> {
     }
 }
 
+/// Parse a binary expression and return an equivalent call expression that can be mutated.
 pub fn expr_binary(e: &syn::ExprBinary) -> Result<syn::Expr, syn::Error> {
     let mut args = make_punc(expr(e.left.as_ref())?);
     args.push(expr(e.right.as_ref())?);

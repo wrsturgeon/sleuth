@@ -13,6 +13,8 @@
     clippy::blanket_clippy_restriction_lints,
     clippy::implicit_return,
     clippy::integer_arithmetic,
+    clippy::mod_module_files,
+    clippy::pattern_type_mismatch,
     clippy::pub_use,
     clippy::question_mark_used,
     clippy::string_add,
