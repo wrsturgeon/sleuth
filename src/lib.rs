@@ -11,11 +11,21 @@
 //!   x.clone() == f(g(x))
 //! }
 //!
-//! #[sleuth(roundtrip(sub_one, 42), !roundtrip(add_one, 42))]
-//! fn add_one(x: u8) -> u8 { x + 1 }
+//! #[sleuth(
+//!     roundtrip(sub_one, 42),
+//!     !roundtrip(add_one, 42),
+//! )]
+//! fn add_one(x: u8) -> u8 {
+//!     x + 1
+//! }
 //!
-//! #[sleuth(roundtrip(add_one, 42), !roundtrip(sub_one, 42))]
-//! fn sub_one(x: u8) -> u8 { x - 1 }
+//! #[sleuth(
+//!     roundtrip(add_one, 42),
+//!     !roundtrip(sub_one, 42),
+//! )]
+//! fn sub_one(x: u8) -> u8 {
+//!     x - 1
+//! }
 //! ```
 
 // TODO: #![no_std]

@@ -21,11 +21,21 @@ fn roundtrip<T, U, F, G>(f: F, g: G, x: T) -> bool
     x.clone() == f(g(x))
 }
 
-#[sleuth(roundtrip(sub_one, 42), !roundtrip(add_one, 42))]
-fn add_one(x: u8) -> u8 { x + 1 }
+#[sleuth(
+    roundtrip(sub_one, 42),
+    !roundtrip(add_one, 42),
+)]
+fn add_one(x: u8) -> u8 {
+    x + 1
+}
 
-#[sleuth(roundtrip(add_one, 42), !roundtrip(sub_one, 42))]
-fn sub_one(x: u8) -> u8 { x - 1 }
+#[sleuth(
+    roundtrip(add_one, 42),
+    !roundtrip(sub_one, 42),
+)]
+fn sub_one(x: u8) -> u8 {
+    x - 1
+}
 ```
 Note a few things:
 - `roundtrip` returns a bool to indicate success or failure instead of `panic`king like a usual test.

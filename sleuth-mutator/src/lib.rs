@@ -97,7 +97,7 @@ pub fn sleuth(
 
 /// Make a trivial punctuated list containing only the argument provided.
 #[inline]
-fn make_punc<T, P>(v: T) -> syn::punctuated::Punctuated<T, P> {
+fn punctuate<T, P>(v: T) -> syn::punctuated::Punctuated<T, P> {
     let mut punc = syn::punctuated::Punctuated::new();
     punc.push_value(v);
     punc

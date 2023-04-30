@@ -1,6 +1,6 @@
 //! Utilities for consuming a usual function and spitting out an AST-aligned representation we can mutate later.
 
-use crate::{ident, make_punc, pathseg};
+use crate::{ident, pathseg, punctuate};
 use quote::ToTokens;
 use syn::{punctuated::Punctuated, spanned::Spanned};
 
@@ -24,7 +24,7 @@ fn ast_fn_expr(fnname: &str) -> syn::Expr {
 /// Call one of our in-house functions mimicking an AST node.
 #[inline]
 fn ast_fn(fnname: &str) -> syn::Path {
-    let mut ps = make_punc(pathseg(ident("sleuth")));
+    let mut ps = punctuate(pathseg(ident("sleuth")));
     ps.push(syn::PathSegment {
         ident: ident("f"),
         arguments: syn::PathArguments::None,
@@ -61,7 +61,20 @@ pub fn item(ast: &syn::Item) -> Result<syn::Item, syn::Error> {
 /// Parse a function and return an equivalent function that can be mutated.
 pub fn function(f: &syn::ItemFn) -> Result<syn::ItemFn, syn::Error> {
     let mut attrs = f.attrs.clone();
-    let mut clippy_const_path = make_punc(pathseg(ident("clippy")));
+    attrs.push(syn::Attribute {
+        pound_token: token!(Pound),
+        style: syn::AttrStyle::Outer,
+        bracket_token: delim_token!(Bracket),
+        meta: syn::Meta::List(syn::MetaList {
+            path: syn::Path {
+                leading_colon: None,
+                segments: punctuate(pathseg(ident(crate::mutate::CFG_MACRO))),
+            },
+            delimiter: syn::MacroDelimiter::Paren(delim_token!(Paren)),
+            tokens: ident("test").into_token_stream(),
+        }),
+    });
+    let mut clippy_const_path = punctuate(pathseg(ident("clippy")));
     clippy_const_path.push(syn::PathSegment {
         ident: ident("missing_const_for_fn"),
         arguments: syn::PathArguments::None,
@@ -73,7 +86,7 @@ pub fn function(f: &syn::ItemFn) -> Result<syn::ItemFn, syn::Error> {
         meta: syn::Meta::List(syn::MetaList {
             path: syn::Path {
                 leading_colon: None,
-                segments: make_punc(pathseg(ident("allow"))),
+                segments: punctuate(pathseg(ident("allow"))),
             },
             delimiter: syn::MacroDelimiter::Paren(delim_token!(Paren)),
             tokens: syn::Path {
@@ -122,7 +135,7 @@ pub fn stmt(s: &syn::Stmt) -> Result<syn::Stmt, syn::Error> {
             syn::Expr::Return(syn::ExprReturn {
                 attrs: vec![],
                 return_token: single_token!(Return),
-                expr: Some(Box::new(call("rtn", make_punc(expr(e)?)))),
+                expr: Some(Box::new(call("rtn", punctuate(expr(e)?)))),
             }),
             Some(token!(Semi)),
         )),
@@ -133,8 +146,8 @@ pub fn stmt(s: &syn::Stmt) -> Result<syn::Stmt, syn::Error> {
 /// Parse an expression and return an equivalent expression that can be mutated.
 pub fn expr(e: &syn::Expr) -> Result<syn::Expr, syn::Error> {
     match e {
-        syn::Expr::Path(p) => Ok(call("path", make_punc(syn::Expr::Path(p.clone())))),
-        syn::Expr::Lit(li) => Ok(call("literal", make_punc(syn::Expr::Lit(li.clone())))),
+        syn::Expr::Path(p) => Ok(call("path", punctuate(syn::Expr::Path(p.clone())))),
+        syn::Expr::Lit(li) => Ok(call("literal", punctuate(syn::Expr::Lit(li.clone())))),
         syn::Expr::Binary(b) => expr_binary(b),
         _ => community_input!(e),
     }
@@ -142,7 +155,7 @@ pub fn expr(e: &syn::Expr) -> Result<syn::Expr, syn::Error> {
 
 /// Parse a binary expression and return an equivalent call expression that can be mutated.
 pub fn expr_binary(e: &syn::ExprBinary) -> Result<syn::Expr, syn::Error> {
-    let mut args = make_punc(expr(e.left.as_ref())?);
+    let mut args = punctuate(expr(e.left.as_ref())?);
     args.push(expr(e.right.as_ref())?);
     match e.op {
         syn::BinOp::Add(_) => Ok(call("add", args)),

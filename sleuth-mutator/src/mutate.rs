@@ -1,6 +1,6 @@
 //! Behind-the-scenes implementation of the publicly exported macro.
 
-use crate::{ident, make_punc, pathseg};
+use crate::{ident, pathseg, punctuate};
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::ToTokens;
 use syn::{punctuated::Punctuated, spanned::Spanned, Expr, Item, Stmt};
@@ -12,7 +12,7 @@ const FN_TYPE_NAME: &str = "_FnToCheck";
 const FN_ARG_NAME: &str = "f";
 
 /// The `#[cfg(test)]` macro, but able to be turned off for transparency with `cargo expand`.
-const CFG_MACRO: &str = "cfg"; // set this to "cfg" for building or to nonsense for `cargo expand`
+pub(crate) const CFG_MACRO: &str = "cfg"; // set this to "cfg" for building or to nonsense for `cargo expand`
 
 /// The `#[test]` macro, but able to be turned off for transparency with `cargo expand`.
 const TEST_MACRO: &str = "test"; // see above, but "test" for actual builds
@@ -50,6 +50,62 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
             "Please don't mutate unsafe functions",
         ));
     }
+
+    // Copy the original when we're not testing
+    let mut attrs = f.attrs;
+    // attrs.push(syn::Attribute {
+    //     pound_token: token!(Pound),
+    //     style: syn::AttrStyle::Outer,
+    //     bracket_token: delim_token!(Bracket),
+    //     meta: syn::Meta::List(syn::MetaList {
+    //         path: syn::Path {
+    //             leading_colon: None,
+    //             segments: punctuate(pathseg(ident("allow"))),
+    //         },
+    //         delimiter: syn::MacroDelimiter::Paren(delim_token!(Paren)),
+    //         tokens: ident("dead_code").into_token_stream(),
+    //     }),
+    // });
+    attrs.push(syn::Attribute {
+        pound_token: token!(Pound),
+        style: syn::AttrStyle::Outer,
+        bracket_token: delim_token!(Bracket),
+        meta: syn::Meta::List(syn::MetaList {
+            path: syn::Path {
+                leading_colon: None,
+                segments: punctuate(pathseg(ident(CFG_MACRO))),
+            },
+            delimiter: syn::MacroDelimiter::Paren(delim_token!(Paren)),
+            tokens: syn::ExprCall {
+                attrs: vec![],
+                func: Box::new(Expr::Path(syn::ExprPath {
+                    attrs: vec![],
+                    qself: None,
+                    path: syn::Path {
+                        leading_colon: None,
+                        segments: punctuate(pathseg(ident("not"))),
+                    },
+                })),
+                paren_token: delim_token!(Paren),
+                args: punctuate(Expr::Path(syn::ExprPath {
+                    attrs: vec![],
+                    qself: None,
+                    path: syn::Path {
+                        leading_colon: None,
+                        segments: punctuate(pathseg(ident("test"))),
+                    },
+                })),
+            }
+            .into_token_stream(),
+        }),
+    });
+    Item::Fn(syn::ItemFn {
+        attrs: attrs,
+        vis: f.vis,
+        sig: f.sig.clone(),
+        block: f.block,
+    })
+    .to_tokens(&mut ts);
 
     // Make a #[cfg(test)] module with a checker (that doesn't panic and isn't a test) and a test (that calls the checker)
     make_fn_specific_module(
@@ -102,20 +158,20 @@ fn single_predicate_from_arguments(attr: TokenStream) -> Result<Expr, syn::Error
         let maybe_fn_args = preds.next();
         let Some(TokenTree::Group(fn_args)) = maybe_fn_args else { return Err(syn::Error::new(maybe_fn_args.span(), "Expected function arguments")); };
 
-        let mut punc_args = make_punc(Expr::Path(syn::ExprPath {
+        let mut punc_args = punctuate(Expr::Path(syn::ExprPath {
             attrs: vec![],
             qself: None,
             path: syn::Path {
                 leading_colon: None,
-                segments: make_punc(pathseg(ident(FN_ARG_NAME))),
+                segments: punctuate(pathseg(ident(FN_ARG_NAME))),
             },
         }));
         punc_args.push(Expr::Verbatim(fn_args.stream()));
 
-        let mut fn_path = make_punc(pathseg(ident("crate")));
+        let mut fn_path = punctuate(pathseg(ident("crate")));
         fn_path.push(pathseg(ident(crate::CRATE_NAME)));
         fn_path.push(pathseg(fn_name));
-        let mut timid_assert = make_punc(pathseg(ident("sleuth")));
+        let mut timid_assert = punctuate(pathseg(ident("sleuth")));
         timid_assert.push(pathseg(ident(if should_fail {
             TIMID_ASSERT_FALSE_MACRO
         } else {
@@ -155,7 +211,7 @@ fn single_predicate_from_arguments(attr: TokenStream) -> Result<Expr, syn::Error
                 method: ident("or_else"),
                 turbofish: None,
                 paren_token: delim_token!(Paren),
-                args: make_punc(Expr::Closure(syn::ExprClosure {
+                args: punctuate(Expr::Closure(syn::ExprClosure {
                     attrs: vec![],
                     lifetimes: None,
                     constness: None,
@@ -211,13 +267,13 @@ fn make_fn_trait_bound(
             }
         }
     }
-    let mut punc = make_punc(syn::TypeParamBound::Trait(syn::TraitBound {
+    let mut punc = punctuate(syn::TypeParamBound::Trait(syn::TraitBound {
         paren_token: None,
         modifier: syn::TraitBoundModifier::None,
         lifetimes: None,
         path: syn::Path {
             leading_colon: None,
-            segments: make_punc(syn::PathSegment {
+            segments: punctuate(syn::PathSegment {
                 ident: ident("Fn"),
                 arguments: syn::PathArguments::Parenthesized(syn::ParenthesizedGenericArguments {
                     paren_token: delim_token!(Paren),
@@ -227,7 +283,7 @@ fn make_fn_trait_bound(
             }),
         },
     }));
-    let mut ref_unwind_safe = make_punc(pathseg(ident("core")));
+    let mut ref_unwind_safe = punctuate(pathseg(ident("core")));
     ref_unwind_safe.push(pathseg(ident("panic")));
     ref_unwind_safe.push(pathseg(ident("RefUnwindSafe")));
     punc.push(syn::TypeParamBound::Trait(syn::TraitBound {
@@ -256,7 +312,7 @@ fn make_checker(
             meta: syn::Meta::List(syn::MetaList {
                 path: syn::Path {
                     leading_colon: None,
-                    segments: make_punc(pathseg(ident("inline"))),
+                    segments: punctuate(pathseg(ident("inline"))),
                 },
                 delimiter: syn::MacroDelimiter::Paren(delim_token!(Paren)),
                 tokens: ident("always").into_token_stream(),
@@ -272,7 +328,7 @@ fn make_checker(
             ident: ident("check"),
             generics: syn::Generics {
                 lt_token: Some(token!(Lt)),
-                params: make_punc(syn::GenericParam::Type(syn::TypeParam {
+                params: punctuate(syn::GenericParam::Type(syn::TypeParam {
                     attrs: vec![],
                     ident: ident(FN_TYPE_NAME),
                     colon_token: Some(token!(Colon)),
@@ -284,14 +340,14 @@ fn make_checker(
                 where_clause: None,
             },
             paren_token: delim_token!(Paren),
-            inputs: make_punc(syn::FnArg::Typed(syn::PatType {
+            inputs: punctuate(syn::FnArg::Typed(syn::PatType {
                 attrs: vec![],
                 pat: Box::new(syn::Pat::Path(syn::ExprPath {
                     attrs: vec![],
                     qself: None,
                     path: syn::Path {
                         leading_colon: None,
-                        segments: make_punc(pathseg(ident(FN_ARG_NAME))),
+                        segments: punctuate(pathseg(ident(FN_ARG_NAME))),
                     },
                 })),
                 colon_token: token!(Colon),
@@ -303,7 +359,7 @@ fn make_checker(
                         qself: None,
                         path: syn::Path {
                             leading_colon: None,
-                            segments: make_punc(pathseg(ident(FN_TYPE_NAME))),
+                            segments: punctuate(pathseg(ident(FN_TYPE_NAME))),
                         },
                     })),
                 })),
@@ -315,13 +371,13 @@ fn make_checker(
                     qself: None,
                     path: syn::Path {
                         leading_colon: None,
-                        segments: make_punc(syn::PathSegment {
+                        segments: punctuate(syn::PathSegment {
                             ident: ident("Option"),
                             arguments: syn::PathArguments::AngleBracketed(
                                 syn::AngleBracketedGenericArguments {
                                     colon2_token: None,
                                     lt_token: token!(Lt),
-                                    args: make_punc(syn::GenericArgument::Type(
+                                    args: punctuate(syn::GenericArgument::Type(
                                         syn::Type::Reference(syn::TypeReference {
                                             and_token: token!(And),
                                             lifetime: None,
@@ -330,7 +386,7 @@ fn make_checker(
                                                 qself: None,
                                                 path: syn::Path {
                                                     leading_colon: None,
-                                                    segments: make_punc(pathseg(ident("str"))),
+                                                    segments: punctuate(pathseg(ident("str"))),
                                                 },
                                             })),
                                         }),
@@ -353,9 +409,9 @@ fn make_checker(
 /// Builds a test that panics if all the given checks don't hold.
 #[inline]
 fn make_test(parsed_fn_sig_ident: Ident) -> Item {
-    let mut sleuth_testify = make_punc(pathseg(ident(crate::CRATE_NAME)));
+    let mut sleuth_testify = punctuate(pathseg(ident(crate::CRATE_NAME)));
     sleuth_testify.push(pathseg(ident("testify")));
-    let mut fn_to_test = make_punc(pathseg(ident("super")));
+    let mut fn_to_test = punctuate(pathseg(ident("super")));
     fn_to_test.push(pathseg(parsed_fn_sig_ident));
     Item::Fn(syn::ItemFn {
         attrs: vec![syn::Attribute {
@@ -364,7 +420,7 @@ fn make_test(parsed_fn_sig_ident: Ident) -> Item {
             bracket_token: delim_token!(Bracket),
             meta: syn::Meta::Path(syn::Path {
                 leading_colon: None,
-                segments: make_punc(pathseg(ident(TEST_MACRO))),
+                segments: punctuate(pathseg(ident(TEST_MACRO))),
             }),
         }],
         vis: syn::Visibility::Inherited,
@@ -400,18 +456,18 @@ fn make_test(parsed_fn_sig_ident: Ident) -> Item {
                         },
                     })),
                     paren_token: delim_token!(Paren),
-                    args: make_punc(Expr::Call(syn::ExprCall {
+                    args: punctuate(Expr::Call(syn::ExprCall {
                         attrs: vec![],
                         func: Box::new(Expr::Path(syn::ExprPath {
                             attrs: vec![],
                             qself: None,
                             path: syn::Path {
                                 leading_colon: None,
-                                segments: make_punc(pathseg(ident("check"))),
+                                segments: punctuate(pathseg(ident("check"))),
                             },
                         })),
                         paren_token: delim_token!(Paren),
-                        args: make_punc(Expr::Reference(syn::ExprReference {
+                        args: punctuate(Expr::Reference(syn::ExprReference {
                             attrs: vec![],
                             and_token: token!(And),
                             mutability: None,
@@ -443,7 +499,7 @@ fn make_fn_specific_module(mod_ident: Ident, check_fn: Item, test_fn: Item) -> I
             meta: syn::Meta::List(syn::MetaList {
                 path: syn::Path {
                     leading_colon: None,
-                    segments: make_punc(pathseg(ident(CFG_MACRO))),
+                    segments: punctuate(pathseg(ident(CFG_MACRO))),
                 },
                 delimiter: syn::MacroDelimiter::Paren(delim_token!(Paren)),
                 tokens: ident("test").into_token_stream(),
