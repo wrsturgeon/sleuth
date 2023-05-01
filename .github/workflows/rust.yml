@@ -17,10 +17,10 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build
-      run: cargo build --verbose --color=always
+      run: RUST_BACKTRACE=full cargo build --verbose
     - name: Check
-      run: cargo check --verbose --color=always && cd sleuth-mutator && cargo check --verbose --color=always && cd ../test && cargo check --verbose --color=always
+      run: RUST_BACKTRACE=full cargo check --verbose && cd sleuth-mutator && cargo check --verbose && cd ../test && cargo check --verbose
     - name: Clippy
-      run: cargo clippy --verbose --color=always && cd sleuth-mutator && cargo clippy --verbose --color=always && cd ../test && cargo clippy --verbose --color=always
+      run: RUST_BACKTRACE=full cargo clippy --verbose && cd sleuth-mutator && cargo clippy --verbose && cd ../test && cargo clippy --verbose
     - name: Test
-      run: cargo test --verbose --color=always && cd sleuth-mutator && cargo test --verbose --color=always && cd ../test && cargo test --verbose --color=always
+      run: RUST_BACKTRACE=full cargo test --verbose && cd sleuth-mutator && cargo test --verbose && cd ../test && cargo test --verbose
