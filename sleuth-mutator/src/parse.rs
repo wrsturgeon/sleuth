@@ -9,7 +9,8 @@
 )] // TODO: remove
 
 use crate::{expr_path, ident, path, pathseg, punctuate};
-use syn::{punctuated::Punctuated, spanned::Spanned};
+use quote::ToTokens;
+use syn::{punctuated::Punctuated, spanned::Spanned, Expr, TypePath};
 
 /// Ask *you* for your contributions!
 macro_rules! community_input {
@@ -20,8 +21,8 @@ macro_rules! community_input {
 
 /// Call one of our in-house functions mimicking an AST node.
 #[inline]
-fn ast_fn_expr(fnname: &str) -> syn::Expr {
-    syn::Expr::Path(syn::ExprPath {
+fn ast_fn_expr(fnname: &str) -> Expr {
+    Expr::Path(syn::ExprPath {
         attrs: vec![],
         qself: None,
         path: ast_fn(fnname),
@@ -43,8 +44,8 @@ fn ast_fn(fnname: &str) -> syn::Path {
 
 /// Call one of our in-house functions mimicking an AST node.
 #[inline]
-fn call(fnname: &str, args: Punctuated<syn::Expr, syn::token::Comma>) -> syn::Expr {
-    syn::Expr::Call(syn::ExprCall {
+fn call(fnname: &str, args: Punctuated<Expr, syn::token::Comma>) -> Expr {
+    Expr::Call(syn::ExprCall {
         attrs: vec![],
         func: Box::new(ast_fn_expr(fnname)),
         paren_token: delim_token!(Paren),
@@ -52,171 +53,155 @@ fn call(fnname: &str, args: Punctuated<syn::Expr, syn::token::Comma>) -> syn::Ex
     })
 }
 
+/// Type and initializer, both starting with `::sleuth::expr::`
+#[inline]
+fn node<const N: usize, const M: usize>(
+    what: &str,
+    generics: [TypePath; N],
+    args: [Expr; M],
+) -> MaybeNode {
+    let mut whole_enchilada =
+        punctuate([pathseg(ident(crate::CRATE_NAME)), pathseg(ident("expr"))]);
+    whole_enchilada.push(syn::PathSegment {
+        ident: ident(what),
+        arguments: if N == 0 {
+            syn::PathArguments::None
+        } else {
+            syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
+                colon2_token: Some(dual_token!(PathSep)),
+                lt_token: token!(Lt),
+                args: punctuate(
+                    generics.map(move |t| syn::GenericArgument::Type(syn::Type::Path(t))),
+                ),
+                gt_token: token!(Gt),
+            })
+        },
+    });
+    Ok((
+        syn::TypePath {
+            qself: None,
+            path: path(true, whole_enchilada.clone()),
+        },
+        if M == 0 {
+            expr_path(
+                true,
+                whole_enchilada
+                    .into_iter()
+                    .map(move |p| pathseg(p.ident) /* no turbofish */)
+                    .collect(),
+            )
+        } else {
+            Expr::Call(syn::ExprCall {
+                attrs: vec![],
+                func: Box::new(expr_path(
+                    true,
+                    whole_enchilada
+                        .into_iter()
+                        .map(move |p| pathseg(p.ident) /* no turbofish */)
+                        .collect(),
+                )),
+                paren_token: delim_token!(Paren),
+                args: punctuate(args),
+            })
+        },
+    ))
+}
+type Node = (TypePath, Expr);
+type MaybeNode = Result<Node, syn::Error>;
+
 /// Parse a function into an equivalent function that can be mutated.
-pub fn function(f: &syn::ItemFn) -> (syn::Type, syn::Expr) {
+pub fn function(f: &syn::ItemFn) -> MaybeNode {
     block(f.block.as_ref())
 }
 
 /// Parse a block into an equivalent block that can be mutated.
-pub fn block(b: &syn::Block) -> (syn::Type, syn::Expr) {
-    let (stmt_type, stmt_init) = statements(&b.stmts);
-    (
-        syn::Type::Path(syn::TypePath {
-            qself: None,
-            path: path(
-                true,
-                punctuate([
-                    pathseg(ident(crate::CRATE_NAME)),
-                    pathseg(ident("expr")),
-                    syn::PathSegment {
-                        ident: ident("Block"),
-                        arguments: syn::PathArguments::AngleBracketed(
-                            syn::AngleBracketedGenericArguments {
-                                colon2_token: None,
-                                lt_token: token!(Lt),
-                                args: punctuate([syn::GenericArgument::Type(stmt_type)]),
-                                gt_token: token!(Gt),
-                            },
-                        ),
-                    },
-                ]),
-            ),
-        }),
-        syn::Expr::Call(syn::ExprCall {
-            attrs: vec![],
-            func: Box::new(expr_path(
-                true,
-                punctuate([
-                    pathseg(ident(crate::CRATE_NAME)),
-                    pathseg(ident("expr")),
-                    pathseg(ident("Block")),
-                ]),
-            )),
-            paren_token: delim_token!(Paren),
-            args: punctuate([stmt_init]),
-        }),
-    )
+pub fn block(b: &syn::Block) -> MaybeNode {
+    let (stmt_type, stmt_init) = statements(&b.stmts)?;
+    node("Block", [stmt_type], [stmt_init])
 }
 
 /// Parse a set of statements.
-pub fn statements(_stmts: &[syn::Stmt]) -> (syn::Type, syn::Expr) {
-    let rtype = syn::Type::Path(syn::TypePath {
-        qself: None,
-        path: path(
-            true,
-            punctuate([
-                pathseg(ident(crate::CRATE_NAME)),
-                pathseg(ident("expr")),
-                pathseg(ident("EndOfBlock")),
-            ]),
-        ),
-    });
-    let rexpr = expr_path(
-        true,
-        punctuate([
-            pathseg(ident(crate::CRATE_NAME)),
-            pathseg(ident("expr")),
-            pathseg(ident("EndOfBlock")),
-        ]),
-    );
-    // let mut literal = punctuate([pathseg(ident(crate::CRATE_NAME)),pathseg(ident("expr")),syn::PathSegment {
-    //     ident: ident("Literal"),
-    //     arguments: syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
-    //         colon2_token: None,
-    //         lt_token: token!(Lt),
-    //         args: punctuate(syn::GenericArgument::Type(syn::Type::Path(syn::TypePath {
-    //             qself: None,
-    //             path: path(false,punctuate(pathseg(ident("bool")))),
-    //         }))),
-    //         gt_token: token!(Gt),
-    //     }),
-    // }]);
-    // Ok((
-    //     syn::Type::Path(syn::TypePath {
-    //         qself: None,
-    //         path: path(true, literal),
-    //     }),
-    //     expr_path(false,punctuate(pathseg(ident("false")))),
-    // ))
-    (rtype, rexpr)
+pub fn statements(stmts: &[syn::Stmt]) -> MaybeNode {
+    let (mut t, mut e) = node("EndList", [], [])?;
+    for s in stmts {
+        let (s_t, s_e) = statement(s)?;
+        (t, e) = node("StatementList", [s_t, t], [s_e, e])?;
+    }
+    Ok((t, e))
 }
 
 /// Parse a statement into an equivalent statement that can be mutated.
-pub fn stmt(s: &syn::Stmt) -> Result<syn::Stmt, syn::Error> {
+pub fn statement(s: &syn::Stmt) -> MaybeNode {
     match s {
-        syn::Stmt::Expr(e, None) => Ok(syn::Stmt::Expr(call("rtn", punctuate([expr(e)?])), None)),
+        syn::Stmt::Expr(e, None) => expression(e),
         _ => community_input!(s),
     }
 }
 
 /// Parse an expression into an equivalent expression that can be mutated.
-pub fn expr(e: &syn::Expr) -> Result<syn::Expr, syn::Error> {
+pub fn expression(e: &Expr) -> MaybeNode {
     match e {
-        syn::Expr::Path(p) => Ok(call("path", punctuate([syn::Expr::Path(p.clone())]))),
-        syn::Expr::Lit(li) => Ok(call("literal", punctuate([syn::Expr::Lit(li.clone())]))),
-        syn::Expr::Binary(b) => expr_binary(b),
-        syn::Expr::If(i) => cond(i),
-        syn::Expr::Block(b) => Ok(syn::Expr::Block(syn::ExprBlock {
-            attrs: b.attrs.clone(),
-            label: b.label.clone(),
-            block: todo!(), // block(&b.block)?,
-        })),
-        _ => community_input!(e),
-    }
-}
-
-/// Parse a binary expression into an equivalent call expression that can be mutated.
-pub fn expr_binary(e: &syn::ExprBinary) -> Result<syn::Expr, syn::Error> {
-    match e.op {
-        syn::BinOp::Add(_) => Ok(call(
-            "add",
-            punctuate([expr(e.left.as_ref())?, expr(e.right.as_ref())?]),
-        )),
-        syn::BinOp::Sub(_) => Ok(call(
-            "sub",
-            punctuate([expr(e.left.as_ref())?, expr(e.right.as_ref())?]),
-        )),
+        p @ Expr::Path(_) => node(
+            "Path",
+            [],
+            [Expr::Verbatim(
+                p.to_token_stream().to_string().into_token_stream(),
+            )],
+        ),
+        Expr::Lit(li) => literal(li),
+        Expr::Binary(b) => binary_expression(b),
+        Expr::If(i) => conditional(i),
+        Expr::Block(b) => block(&b.block),
         _ => community_input!(e),
     }
 }
 
 /// Parse a conditional (i.e. `if`) into an equivalent call expression that can be mutated.
-pub fn cond(e: &syn::ExprIf) -> Result<syn::Expr, syn::Error> {
-    #[allow(unused_variables)]
-    let mut args = punctuate([
-        expr(e.cond.as_ref())?,
-        syn::Expr::Closure(syn::ExprClosure {
-            attrs: vec![],
-            lifetimes: None,
-            constness: None,
-            movability: None,
-            asyncness: None,
-            capture: None,
-            or1_token: token!(Or),
-            inputs: Punctuated::new(),
-            or2_token: token!(Or),
-            output: syn::ReturnType::Default,
-            body: Box::new(syn::Expr::Block(syn::ExprBlock {
-                attrs: vec![],
-                label: None,
-                block: todo!(), // block(&e.then_branch)?,
-            })),
-        }),
-    ]);
-    if let Some((_, otherwise)) = &e.else_branch {
-        args.push(syn::Expr::Closure(syn::ExprClosure {
-            attrs: vec![],
-            lifetimes: None,
-            constness: None,
-            movability: None,
-            asyncness: None,
-            capture: None,
-            or1_token: token!(Or),
-            inputs: Punctuated::new(),
-            or2_token: token!(Or),
-            output: syn::ReturnType::Default,
-            body: Box::new(expr(otherwise.as_ref())?),
-        }));
+pub fn conditional(e: &syn::ExprIf) -> MaybeNode {
+    let (cond_t, cond_e) = expression(e.cond.as_ref())?;
+    let (left_t, left_e) = block(&e.then_branch)?;
+    if let Some((_, right)) = &e.else_branch {
+        let (right_t, right_e) = expression(right.as_ref())?;
+        node(
+            "IfElse",
+            [cond_t, left_t, right_t],
+            [cond_e, left_e, right_e],
+        )
+    } else {
+        node("If", [cond_t, left_t], [cond_e, left_e])
     }
-    Ok(call("cond", args))
+}
+
+/// Parse a literal (e.g. `0`, `true`, `"hi"`) into an equivalent call expression that can be mutated.
+pub fn literal(e: &syn::ExprLit) -> MaybeNode {
+    node(
+        "Literal",
+        [syn::TypePath {
+            qself: None,
+            path: path(
+                false,
+                punctuate([pathseg(ident(match &e.lit {
+                    syn::Lit::Bool(_) => "bool",
+                    syn::Lit::Int(_) => "isize",
+                    _ => community_input!(e.lit),
+                }))]),
+            ),
+        }],
+        [Expr::Lit(e.clone())],
+    )
+}
+
+/// Parse a binary expression into an equivalent call expression that can be mutated.
+pub fn binary_expression(e: &syn::ExprBinary) -> MaybeNode {
+    let (left_t, left_e) = expression(e.left.as_ref())?;
+    let (right_t, right_e) = expression(e.right.as_ref())?;
+    node(
+        match e.op {
+            syn::BinOp::Add(_) => "Add",
+            syn::BinOp::Sub(_) => "Sub",
+            _ => community_input!(e),
+        },
+        [left_t, right_t],
+        [left_e, right_e],
+    )
 }

@@ -59,7 +59,7 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
     }
 
     // Replace the original function definition with an equivalent callable struct that makes the AST explicit
-    let (ast_type, ast_init) = crate::parse::function(&f);
+    let (ast_type, ast_init) = crate::parse::function(&f)?;
 
     // Make a #[cfg(test)] module with a checker (that doesn't panic and isn't a test) and a test (that calls the checker)
     make_fn_specific_module(
@@ -523,7 +523,7 @@ fn make_test_mutants() -> Item {
 #[inline]
 fn make_fn_specific_module(
     mod_ident: Ident,
-    ast_type: Type,
+    ast_type: syn::TypePath,
     ast_init: Expr,
     check_fn: Item,
     test_original: Item,
@@ -573,7 +573,7 @@ fn make_fn_specific_module(
                         where_clause: None,
                     },
                     eq_token: token!(Eq),
-                    ty: Box::new(ast_type),
+                    ty: Box::new(syn::Type::Path(ast_type)),
                     semi_token: token!(Semi),
                 }),
                 syn::Item::Const(syn::ItemConst {

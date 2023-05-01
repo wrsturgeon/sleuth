@@ -18,6 +18,7 @@
     clippy::pattern_type_mismatch,
     clippy::pub_use,
     clippy::question_mark_used,
+    clippy::separated_literal_suffix,
     clippy::string_add,
     clippy::wildcard_enum_match_arm,
     clippy::wildcard_imports
