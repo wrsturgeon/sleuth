@@ -12,10 +12,18 @@ const FN_TYPE_NAME: &str = "_FnToCheck";
 const FN_ARG_NAME: &str = "f";
 
 /// The `#[cfg(test)]` macro, but able to be turned off for transparency with `cargo expand`.
-pub const CFG_MACRO: &str = "cfg"; // set this to "cfg" for building or to nonsense for `cargo expand`
+pub const CFG_MACRO: &str = if option_env!("EXPAND").is_some() {
+    "cfg_when_not_expand"
+} else {
+    "cfg"
+};
 
 /// The `#[test]` macro, but able to be turned off for transparency with `cargo expand`.
-const TEST_MACRO: &str = "test"; // see above, but "test" for actual builds
+const TEST_MACRO: &str = if option_env!("EXPAND").is_some() {
+    "test_when_not_expand"
+} else {
+    "test"
+};
 
 /// Name of the macro that returns a potential error message without `panic`king.
 const TIMID_ASSERT_MACRO: &str = "timid_assert";
@@ -107,29 +115,37 @@ fn single_predicate_from_arguments(attr: TokenStream) -> Result<Expr, syn::Error
         let maybe_fn_args = preds.next();
         let Some(TokenTree::Group(fn_args)) = maybe_fn_args else { return Err(syn::Error::new(maybe_fn_args.span(), "Expected function arguments")); };
 
-        let mut punc_args = punctuate(expr_path(false, punctuate(pathseg(ident(FN_ARG_NAME)))));
-        punc_args.push(Expr::Verbatim(fn_args.stream()));
-
-        let mut fn_path = punctuate(pathseg(ident("crate")));
-        fn_path.push(pathseg(ident(crate::CRATE_NAME)));
-        fn_path.push(pathseg(fn_name));
-        let mut timid_assert = punctuate(pathseg(ident(crate::CRATE_NAME)));
-        timid_assert.push(pathseg(ident(if should_fail {
-            TIMID_ASSERT_FALSE_MACRO
-        } else {
-            TIMID_ASSERT_MACRO
-        })));
         let this_pred = syn::Expr::Macro(syn::ExprMacro {
             attrs: vec![],
             mac: syn::Macro {
-                path: path(true, timid_assert),
+                path: path(
+                    true,
+                    punctuate([
+                        pathseg(ident(crate::CRATE_NAME)),
+                        pathseg(ident(if should_fail {
+                            TIMID_ASSERT_FALSE_MACRO
+                        } else {
+                            TIMID_ASSERT_MACRO
+                        })),
+                    ]),
+                ),
                 bang_token: token!(Not),
                 delimiter: syn::MacroDelimiter::Paren(delim_token!(Paren)),
                 tokens: Expr::Call(syn::ExprCall {
                     attrs: vec![],
-                    func: Box::new(expr_path(false, fn_path)),
+                    func: Box::new(expr_path(
+                        false,
+                        punctuate([
+                            pathseg(ident("crate")),
+                            pathseg(ident(crate::CRATE_NAME)),
+                            pathseg(fn_name),
+                        ]),
+                    )),
                     paren_token: delim_token!(Paren),
-                    args: punc_args,
+                    args: punctuate([
+                        expr_path(false, punctuate([pathseg(ident(FN_ARG_NAME))])),
+                        Expr::Verbatim(fn_args.stream()),
+                    ]),
                 })
                 .into_token_stream(),
             },
@@ -143,7 +159,7 @@ fn single_predicate_from_arguments(attr: TokenStream) -> Result<Expr, syn::Error
                 method: ident("or_else"),
                 turbofish: None,
                 paren_token: delim_token!(Paren),
-                args: punctuate(Expr::Closure(syn::ExprClosure {
+                args: punctuate([Expr::Closure(syn::ExprClosure {
                     attrs: vec![],
                     lifetimes: None,
                     constness: None,
@@ -155,7 +171,7 @@ fn single_predicate_from_arguments(attr: TokenStream) -> Result<Expr, syn::Error
                     or2_token: token!(Or),
                     output: syn::ReturnType::Default,
                     body: Box::new(this_pred),
-                })),
+                })]),
             })
         } else {
             this_pred
@@ -197,30 +213,34 @@ fn make_fn_trait_bound(
             ));
         }
     }
-    let mut punc = punctuate(syn::TypeParamBound::Trait(syn::TraitBound {
+    let mut punc = punctuate([syn::TypeParamBound::Trait(syn::TraitBound {
         paren_token: None,
         modifier: syn::TraitBoundModifier::None,
         lifetimes: None,
         path: path(
             false,
-            punctuate(syn::PathSegment {
+            punctuate([syn::PathSegment {
                 ident: ident("Fn"),
                 arguments: syn::PathArguments::Parenthesized(syn::ParenthesizedGenericArguments {
                     paren_token: delim_token!(Paren),
                     inputs: input_types,
                     output: parsed_fn_output,
                 }),
-            }),
+            }]),
         ),
-    }));
-    let mut ref_unwind_safe = punctuate(pathseg(ident("core")));
-    ref_unwind_safe.push(pathseg(ident("panic")));
-    ref_unwind_safe.push(pathseg(ident("RefUnwindSafe")));
+    })]);
     punc.push(syn::TypeParamBound::Trait(syn::TraitBound {
         paren_token: None,
         modifier: syn::TraitBoundModifier::None,
         lifetimes: None,
-        path: path(true, ref_unwind_safe),
+        path: path(
+            true,
+            punctuate([
+                pathseg(ident("core")),
+                pathseg(ident("panic")),
+                pathseg(ident("RefUnwindSafe")),
+            ]),
+        ),
     }));
     Ok(punc)
 }
@@ -237,7 +257,7 @@ fn make_checker(
             style: syn::AttrStyle::Outer,
             bracket_token: delim_token!(Bracket),
             meta: syn::Meta::List(syn::MetaList {
-                path: path(false, punctuate(pathseg(ident("inline")))),
+                path: path(false, punctuate([pathseg(ident("inline"))])),
                 delimiter: syn::MacroDelimiter::Paren(delim_token!(Paren)),
                 tokens: ident("always").into_token_stream(),
             }),
@@ -252,24 +272,24 @@ fn make_checker(
             ident: ident("check"),
             generics: syn::Generics {
                 lt_token: Some(token!(Lt)),
-                params: punctuate(syn::GenericParam::Type(syn::TypeParam {
+                params: punctuate([syn::GenericParam::Type(syn::TypeParam {
                     attrs: vec![],
                     ident: ident(FN_TYPE_NAME),
                     colon_token: Some(token!(Colon)),
                     bounds: fn_trait_bound,
                     eq_token: None,
                     default: None,
-                })),
+                })]),
                 gt_token: Some(token!(Gt)),
                 where_clause: None,
             },
             paren_token: delim_token!(Paren),
-            inputs: punctuate(syn::FnArg::Typed(syn::PatType {
+            inputs: punctuate([syn::FnArg::Typed(syn::PatType {
                 attrs: vec![],
                 pat: Box::new(syn::Pat::Path(syn::ExprPath {
                     attrs: vec![],
                     qself: None,
-                    path: path(false, punctuate(pathseg(ident(FN_ARG_NAME)))),
+                    path: path(false, punctuate([pathseg(ident(FN_ARG_NAME))])),
                 })),
                 colon_token: token!(Colon),
                 ty: Box::new(syn::Type::Reference(syn::TypeReference {
@@ -280,11 +300,11 @@ fn make_checker(
                         qself: None,
                         path: syn::Path {
                             leading_colon: None,
-                            segments: punctuate(pathseg(ident(FN_TYPE_NAME))),
+                            segments: punctuate([pathseg(ident(FN_TYPE_NAME))]),
                         },
                     })),
                 })),
-            })),
+            })]),
             variadic: None,
             output: syn::ReturnType::Type(
                 dual_token!(RArrow),
@@ -292,13 +312,13 @@ fn make_checker(
                     qself: None,
                     path: path(
                         false,
-                        punctuate(syn::PathSegment {
+                        punctuate([syn::PathSegment {
                             ident: ident("Option"),
                             arguments: syn::PathArguments::AngleBracketed(
                                 syn::AngleBracketedGenericArguments {
                                     colon2_token: None,
                                     lt_token: token!(Lt),
-                                    args: punctuate(syn::GenericArgument::Type(Type::Reference(
+                                    args: punctuate([syn::GenericArgument::Type(Type::Reference(
                                         syn::TypeReference {
                                             and_token: token!(And),
                                             lifetime: Some(syn::Lifetime {
@@ -308,14 +328,17 @@ fn make_checker(
                                             mutability: None,
                                             elem: Box::new(Type::Path(syn::TypePath {
                                                 qself: None,
-                                                path: path(false, punctuate(pathseg(ident("str")))),
+                                                path: path(
+                                                    false,
+                                                    punctuate([pathseg(ident("str"))]),
+                                                ),
                                             })),
                                         },
-                                    ))),
+                                    ))]),
                                     gt_token: token!(Gt),
                                 },
                             ),
-                        }),
+                        }]),
                     ),
                 })),
             ),
@@ -330,14 +353,12 @@ fn make_checker(
 /// Builds a test that panics if all the given checks don't hold for the original function.
 #[inline]
 fn make_test_original(parsed_fn_sig_ident: Ident) -> Item {
-    let mut sleuth_testify = punctuate(pathseg(ident(crate::CRATE_NAME)));
-    sleuth_testify.push(pathseg(ident("testify")));
     Item::Fn(syn::ItemFn {
         attrs: vec![syn::Attribute {
             pound_token: token!(Pound),
             style: syn::AttrStyle::Outer,
             bracket_token: delim_token!(Bracket),
-            meta: syn::Meta::Path(path(false, punctuate(pathseg(ident(TEST_MACRO))))),
+            meta: syn::Meta::Path(path(false, punctuate([pathseg(ident(TEST_MACRO))]))),
         }],
         vis: syn::Visibility::Inherited,
         sig: syn::Signature {
@@ -363,22 +384,25 @@ fn make_test_original(parsed_fn_sig_ident: Ident) -> Item {
             stmts: vec![Stmt::Expr(
                 Expr::Call(syn::ExprCall {
                     attrs: vec![],
-                    func: Box::new(expr_path(true, sleuth_testify)),
+                    func: Box::new(expr_path(
+                        true,
+                        punctuate([pathseg(ident(crate::CRATE_NAME)), pathseg(ident("testify"))]),
+                    )),
                     paren_token: delim_token!(Paren),
-                    args: punctuate(Expr::Call(syn::ExprCall {
+                    args: punctuate([Expr::Call(syn::ExprCall {
                         attrs: vec![],
-                        func: Box::new(expr_path(false, punctuate(pathseg(ident("check"))))),
+                        func: Box::new(expr_path(false, punctuate([pathseg(ident("check"))]))),
                         paren_token: delim_token!(Paren),
-                        args: punctuate(Expr::Reference(syn::ExprReference {
+                        args: punctuate([Expr::Reference(syn::ExprReference {
                             attrs: vec![],
                             and_token: token!(And),
                             mutability: None,
                             expr: Box::new(expr_path(
                                 false,
-                                punctuate(pathseg(parsed_fn_sig_ident)),
+                                punctuate([pathseg(parsed_fn_sig_ident)]),
                             )),
-                        })),
-                    })),
+                        })]),
+                    })]),
                 }),
                 None,
             )],
@@ -389,14 +413,12 @@ fn make_test_original(parsed_fn_sig_ident: Ident) -> Item {
 /// Builds a test that finds and returns a mutant that passes all checks if one exists.
 #[inline]
 fn make_test_mutants() -> Item {
-    let mut sleuth_testify = punctuate(pathseg(ident(crate::CRATE_NAME)));
-    sleuth_testify.push(pathseg(ident("testify")));
     Item::Fn(syn::ItemFn {
         attrs: vec![syn::Attribute {
             pound_token: token!(Pound),
             style: syn::AttrStyle::Outer,
             bracket_token: delim_token!(Bracket),
-            meta: syn::Meta::Path(path(false, punctuate(pathseg(ident(TEST_MACRO))))),
+            meta: syn::Meta::Path(path(false, punctuate([pathseg(ident(TEST_MACRO))]))),
         }],
         vis: syn::Visibility::Inherited,
         sig: syn::Signature {
@@ -435,18 +457,60 @@ fn make_test_mutants() -> Item {
                     semi_token: token!(Semi),
                 })),
                 Stmt::Expr(
-                    Expr::Call(syn::ExprCall {
+                    Expr::ForLoop(syn::ExprForLoop {
                         attrs: vec![],
-                        func: Box::new(expr_path(true, sleuth_testify)),
-                        paren_token: delim_token!(Paren),
-                        args: punctuate(Expr::Call(syn::ExprCall {
+                        label: None,
+                        for_token: single_token!(For),
+                        pat: Box::new(syn::Pat::Path(syn::ExprPath {
                             attrs: vec![],
-                            func: Box::new(expr_path(false, punctuate(pathseg(ident("Some"))))),
-                            paren_token: delim_token!(Paren),
-                            args: punctuate(Expr::Verbatim(
-                                "mutation testing not yet implemented".into_token_stream(),
-                            )),
+                            qself: None,
+                            path: path(false, punctuate([pathseg(ident("mutation_severity"))])),
                         })),
+                        in_token: single_token!(In),
+                        expr: Box::new(Expr::Range(syn::ExprRange {
+                            attrs: vec![],
+                            start: Some(Box::new(Expr::Verbatim(0_usize.to_token_stream()))),
+                            limits: syn::RangeLimits::Closed(syn::token::DotDotEq {
+                                spans: [
+                                    proc_macro2::Span::call_site(),
+                                    proc_macro2::Span::call_site(),
+                                    proc_macro2::Span::call_site(),
+                                ],
+                            }),
+                            end: Some(Box::new(expr_path(
+                                false,
+                                punctuate([pathseg(ident("Ast")), pathseg(ident("COMPLEXITY"))]),
+                            ))),
+                        })),
+                        body: syn::Block {
+                            brace_token: delim_token!(Brace),
+                            stmts: vec![Stmt::Expr(
+                                Expr::Call(syn::ExprCall {
+                                    attrs: vec![],
+                                    func: Box::new(expr_path(
+                                        true,
+                                        punctuate([
+                                            pathseg(ident(crate::CRATE_NAME)),
+                                            pathseg(ident("testify")),
+                                        ]),
+                                    )),
+                                    paren_token: delim_token!(Paren),
+                                    args: punctuate([Expr::Call(syn::ExprCall {
+                                        attrs: vec![],
+                                        func: Box::new(expr_path(
+                                            false,
+                                            punctuate([pathseg(ident("Some"))]),
+                                        )),
+                                        paren_token: delim_token!(Paren),
+                                        args: punctuate([Expr::Verbatim(
+                                            "mutation testing not yet implemented"
+                                                .into_token_stream(),
+                                        )]),
+                                    })]),
+                                }),
+                                None,
+                            )],
+                        },
                     }),
                     None,
                 ),
@@ -471,7 +535,7 @@ fn make_fn_specific_module(
             style: syn::AttrStyle::Outer,
             bracket_token: delim_token!(Bracket),
             meta: syn::Meta::List(syn::MetaList {
-                path: path(false, punctuate(pathseg(ident(CFG_MACRO)))),
+                path: path(false, punctuate([pathseg(ident(CFG_MACRO))])),
                 delimiter: syn::MacroDelimiter::Paren(delim_token!(Paren)),
                 tokens: ident("test").into_token_stream(),
             }),
@@ -526,7 +590,7 @@ fn make_fn_specific_module(
                     colon_token: token!(Colon),
                     ty: Box::new(Type::Path(syn::TypePath {
                         qself: None,
-                        path: path(false, punctuate(pathseg(ident("Ast")))),
+                        path: path(false, punctuate([pathseg(ident("Ast"))])),
                     })),
                     eq_token: token!(Eq),
                     expr: Box::new(ast_init),

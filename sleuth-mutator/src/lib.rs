@@ -121,11 +121,13 @@ fn path(
     }
 }
 
-/// Make a trivial punctuated list containing only the argument provided.
+/// Turn a slice into a punctuated list.
 #[inline]
-fn punctuate<T, P>(v: T) -> syn::punctuated::Punctuated<T, P> {
+fn punctuate<T, P: Default, const N: usize>(vs: [T; N]) -> syn::punctuated::Punctuated<T, P> {
     let mut punc = syn::punctuated::Punctuated::new();
-    punc.push_value(v);
+    for v in vs {
+        punc.push(v);
+    }
     punc
 }
 

@@ -31,16 +31,14 @@ fn ast_fn_expr(fnname: &str) -> syn::Expr {
 /// Call one of our in-house functions mimicking an AST node.
 #[inline]
 fn ast_fn(fnname: &str) -> syn::Path {
-    let mut ps = punctuate(pathseg(ident(crate::CRATE_NAME)));
-    ps.push(syn::PathSegment {
-        ident: ident("f"),
-        arguments: syn::PathArguments::None,
-    });
-    ps.push(syn::PathSegment {
-        ident: ident(fnname),
-        arguments: syn::PathArguments::None,
-    });
-    path(true, ps)
+    path(
+        true,
+        punctuate([
+            pathseg(ident(crate::CRATE_NAME)),
+            pathseg(ident("f")),
+            pathseg(ident(fnname)),
+        ]),
+    )
 }
 
 /// Call one of our in-house functions mimicking an AST node.
@@ -62,47 +60,66 @@ pub fn function(f: &syn::ItemFn) -> (syn::Type, syn::Expr) {
 /// Parse a block into an equivalent block that can be mutated.
 pub fn block(b: &syn::Block) -> (syn::Type, syn::Expr) {
     let (stmt_type, stmt_init) = statements(&b.stmts);
-    let mut sleuth_expr_init = punctuate(pathseg(ident(crate::CRATE_NAME)));
-    sleuth_expr_init.push(pathseg(ident("expr")));
-    sleuth_expr_init.push(pathseg(ident("Block")));
-    let mut sleuth_expr_type = punctuate(pathseg(ident(crate::CRATE_NAME)));
-    sleuth_expr_type.push(pathseg(ident("expr")));
-    sleuth_expr_type.push(syn::PathSegment {
-        ident: ident("Block"),
-        arguments: syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
-            colon2_token: None,
-            lt_token: token!(Lt),
-            args: punctuate(syn::GenericArgument::Type(stmt_type)),
-            gt_token: token!(Gt),
-        }),
-    });
     (
         syn::Type::Path(syn::TypePath {
             qself: None,
-            path: path(true, sleuth_expr_type),
+            path: path(
+                true,
+                punctuate([
+                    pathseg(ident(crate::CRATE_NAME)),
+                    pathseg(ident("expr")),
+                    syn::PathSegment {
+                        ident: ident("Block"),
+                        arguments: syn::PathArguments::AngleBracketed(
+                            syn::AngleBracketedGenericArguments {
+                                colon2_token: None,
+                                lt_token: token!(Lt),
+                                args: punctuate([syn::GenericArgument::Type(stmt_type)]),
+                                gt_token: token!(Gt),
+                            },
+                        ),
+                    },
+                ]),
+            ),
         }),
         syn::Expr::Call(syn::ExprCall {
             attrs: vec![],
-            func: Box::new(expr_path(true, sleuth_expr_init)),
+            func: Box::new(expr_path(
+                true,
+                punctuate([
+                    pathseg(ident(crate::CRATE_NAME)),
+                    pathseg(ident("expr")),
+                    pathseg(ident("Block")),
+                ]),
+            )),
             paren_token: delim_token!(Paren),
-            args: punctuate(stmt_init),
+            args: punctuate([stmt_init]),
         }),
     )
 }
 
 /// Parse a set of statements.
 pub fn statements(_stmts: &[syn::Stmt]) -> (syn::Type, syn::Expr) {
-    let mut end = punctuate(pathseg(ident(crate::CRATE_NAME)));
-    end.push(pathseg(ident("expr")));
-    end.push(pathseg(ident("EndOfBlock")));
     let rtype = syn::Type::Path(syn::TypePath {
         qself: None,
-        path: path(true, end.clone()),
+        path: path(
+            true,
+            punctuate([
+                pathseg(ident(crate::CRATE_NAME)),
+                pathseg(ident("expr")),
+                pathseg(ident("EndOfBlock")),
+            ]),
+        ),
     });
-    let rexpr = expr_path(true, end);
-    // let mut literal = punctuate(pathseg(ident(crate::CRATE_NAME)));
-    // literal.push(pathseg(ident("expr")));
-    // literal.push(syn::PathSegment {
+    let rexpr = expr_path(
+        true,
+        punctuate([
+            pathseg(ident(crate::CRATE_NAME)),
+            pathseg(ident("expr")),
+            pathseg(ident("EndOfBlock")),
+        ]),
+    );
+    // let mut literal = punctuate([pathseg(ident(crate::CRATE_NAME)),pathseg(ident("expr")),syn::PathSegment {
     //     ident: ident("Literal"),
     //     arguments: syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
     //         colon2_token: None,
@@ -113,7 +130,7 @@ pub fn statements(_stmts: &[syn::Stmt]) -> (syn::Type, syn::Expr) {
     //         }))),
     //         gt_token: token!(Gt),
     //     }),
-    // });
+    // }]);
     // Ok((
     //     syn::Type::Path(syn::TypePath {
     //         qself: None,
@@ -127,7 +144,7 @@ pub fn statements(_stmts: &[syn::Stmt]) -> (syn::Type, syn::Expr) {
 /// Parse a statement into an equivalent statement that can be mutated.
 pub fn stmt(s: &syn::Stmt) -> Result<syn::Stmt, syn::Error> {
     match s {
-        syn::Stmt::Expr(e, None) => Ok(syn::Stmt::Expr(call("rtn", punctuate(expr(e)?)), None)),
+        syn::Stmt::Expr(e, None) => Ok(syn::Stmt::Expr(call("rtn", punctuate([expr(e)?])), None)),
         _ => community_input!(s),
     }
 }
@@ -135,8 +152,8 @@ pub fn stmt(s: &syn::Stmt) -> Result<syn::Stmt, syn::Error> {
 /// Parse an expression into an equivalent expression that can be mutated.
 pub fn expr(e: &syn::Expr) -> Result<syn::Expr, syn::Error> {
     match e {
-        syn::Expr::Path(p) => Ok(call("path", punctuate(syn::Expr::Path(p.clone())))),
-        syn::Expr::Lit(li) => Ok(call("literal", punctuate(syn::Expr::Lit(li.clone())))),
+        syn::Expr::Path(p) => Ok(call("path", punctuate([syn::Expr::Path(p.clone())]))),
+        syn::Expr::Lit(li) => Ok(call("literal", punctuate([syn::Expr::Lit(li.clone())]))),
         syn::Expr::Binary(b) => expr_binary(b),
         syn::Expr::If(i) => cond(i),
         syn::Expr::Block(b) => Ok(syn::Expr::Block(syn::ExprBlock {
@@ -150,35 +167,42 @@ pub fn expr(e: &syn::Expr) -> Result<syn::Expr, syn::Error> {
 
 /// Parse a binary expression into an equivalent call expression that can be mutated.
 pub fn expr_binary(e: &syn::ExprBinary) -> Result<syn::Expr, syn::Error> {
-    let mut args = punctuate(expr(e.left.as_ref())?);
-    args.push(expr(e.right.as_ref())?);
     match e.op {
-        syn::BinOp::Add(_) => Ok(call("add", args)),
-        syn::BinOp::Sub(_) => Ok(call("sub", args)),
+        syn::BinOp::Add(_) => Ok(call(
+            "add",
+            punctuate([expr(e.left.as_ref())?, expr(e.right.as_ref())?]),
+        )),
+        syn::BinOp::Sub(_) => Ok(call(
+            "sub",
+            punctuate([expr(e.left.as_ref())?, expr(e.right.as_ref())?]),
+        )),
         _ => community_input!(e),
     }
 }
 
 /// Parse a conditional (i.e. `if`) into an equivalent call expression that can be mutated.
 pub fn cond(e: &syn::ExprIf) -> Result<syn::Expr, syn::Error> {
-    let mut args = punctuate(expr(e.cond.as_ref())?);
-    args.push(syn::Expr::Closure(syn::ExprClosure {
-        attrs: vec![],
-        lifetimes: None,
-        constness: None,
-        movability: None,
-        asyncness: None,
-        capture: None,
-        or1_token: token!(Or),
-        inputs: Punctuated::new(),
-        or2_token: token!(Or),
-        output: syn::ReturnType::Default,
-        body: Box::new(syn::Expr::Block(syn::ExprBlock {
+    #[allow(unused_variables)]
+    let mut args = punctuate([
+        expr(e.cond.as_ref())?,
+        syn::Expr::Closure(syn::ExprClosure {
             attrs: vec![],
-            label: None,
-            block: todo!(), // block(&e.then_branch)?,
-        })),
-    }));
+            lifetimes: None,
+            constness: None,
+            movability: None,
+            asyncness: None,
+            capture: None,
+            or1_token: token!(Or),
+            inputs: Punctuated::new(),
+            or2_token: token!(Or),
+            output: syn::ReturnType::Default,
+            body: Box::new(syn::Expr::Block(syn::ExprBlock {
+                attrs: vec![],
+                label: None,
+                block: todo!(), // block(&e.then_branch)?,
+            })),
+        }),
+    ]);
     if let Some((_, otherwise)) = &e.else_branch {
         args.push(syn::Expr::Closure(syn::ExprClosure {
             attrs: vec![],
