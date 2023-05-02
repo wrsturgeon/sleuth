@@ -59,7 +59,7 @@ fn node<const N: usize, const M: usize>(
     what: &str,
     generics: [TypePath; N],
     args: [Expr; M],
-) -> MaybeNode {
+) -> Node {
     let mut whole_enchilada =
         punctuate([pathseg(ident(crate::CRATE_NAME)), pathseg(ident("expr"))]);
     whole_enchilada.push(syn::PathSegment {
@@ -77,7 +77,7 @@ fn node<const N: usize, const M: usize>(
             })
         },
     });
-    Ok((
+    (
         syn::TypePath {
             qself: None,
             path: path(true, whole_enchilada.clone()),
@@ -104,9 +104,11 @@ fn node<const N: usize, const M: usize>(
                 args: punctuate(args),
             })
         },
-    ))
+    )
 }
+/// A type and its instantiation.
 type Node = (TypePath, Expr);
+/// Either a type and its instantiation or failure.
 type MaybeNode = Result<Node, syn::Error>;
 
 /// Parse a function into an equivalent function that can be mutated.
@@ -117,15 +119,16 @@ pub fn function(f: &syn::ItemFn) -> MaybeNode {
 /// Parse a block into an equivalent block that can be mutated.
 pub fn block(b: &syn::Block) -> MaybeNode {
     let (stmt_type, stmt_init) = statements(&b.stmts)?;
-    node("Block", [stmt_type], [stmt_init])
+    Ok(node("Block", [stmt_type], [stmt_init]))
 }
 
 /// Parse a set of statements.
 pub fn statements(stmts: &[syn::Stmt]) -> MaybeNode {
-    let (mut t, mut e) = node("EndList", [], [])?;
+    #![allow(clippy::shadow_unrelated)] // for some reason it can't tell this is assignment (I think?)
+    let (mut t, mut e) = node("EndList", [], []);
     for s in stmts {
         let (s_t, s_e) = statement(s)?;
-        (t, e) = node("StatementList", [s_t, t], [s_e, e])?;
+        (t, e) = node("StatementList", [s_t, t], [s_e, e]);
     }
     Ok((t, e))
 }
@@ -141,13 +144,13 @@ pub fn statement(s: &syn::Stmt) -> MaybeNode {
 /// Parse an expression into an equivalent expression that can be mutated.
 pub fn expression(e: &Expr) -> MaybeNode {
     match e {
-        p @ Expr::Path(_) => node(
+        p @ Expr::Path(_) => Ok(node(
             "Path",
             [],
             [Expr::Verbatim(
                 p.to_token_stream().to_string().into_token_stream(),
             )],
-        ),
+        )),
         Expr::Lit(li) => literal(li),
         Expr::Binary(b) => binary_expression(b),
         Expr::If(i) => conditional(i),
@@ -160,7 +163,7 @@ pub fn expression(e: &Expr) -> MaybeNode {
 pub fn conditional(e: &syn::ExprIf) -> MaybeNode {
     let (cond_t, cond_e) = expression(e.cond.as_ref())?;
     let (left_t, left_e) = block(&e.then_branch)?;
-    if let Some((_, right)) = &e.else_branch {
+    Ok(if let Some((_, right)) = &e.else_branch {
         let (right_t, right_e) = expression(right.as_ref())?;
         node(
             "IfElse",
@@ -169,12 +172,12 @@ pub fn conditional(e: &syn::ExprIf) -> MaybeNode {
         )
     } else {
         node("If", [cond_t, left_t], [cond_e, left_e])
-    }
+    })
 }
 
 /// Parse a literal (e.g. `0`, `true`, `"hi"`) into an equivalent call expression that can be mutated.
 pub fn literal(e: &syn::ExprLit) -> MaybeNode {
-    node(
+    Ok(node(
         "Literal",
         [syn::TypePath {
             qself: None,
@@ -188,14 +191,14 @@ pub fn literal(e: &syn::ExprLit) -> MaybeNode {
             ),
         }],
         [Expr::Lit(e.clone())],
-    )
+    ))
 }
 
 /// Parse a binary expression into an equivalent call expression that can be mutated.
 pub fn binary_expression(e: &syn::ExprBinary) -> MaybeNode {
     let (left_t, left_e) = expression(e.left.as_ref())?;
     let (right_t, right_e) = expression(e.right.as_ref())?;
-    node(
+    Ok(node(
         match e.op {
             syn::BinOp::Add(_) => "Add",
             syn::BinOp::Sub(_) => "Sub",
@@ -203,5 +206,5 @@ pub fn binary_expression(e: &syn::ExprBinary) -> MaybeNode {
         },
         [left_t, right_t],
         [left_e, right_e],
-    )
+    ))
 }

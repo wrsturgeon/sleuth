@@ -146,3 +146,11 @@ const fn pathseg(fn_name: syn::Ident) -> syn::PathSegment {
         arguments: syn::PathArguments::None,
     }
 }
+
+/// Where something could be generic but isn't (either a turbofish `::<>` or completely elided by the `quote` crate)
+const NO_GENERICS: syn::Generics = syn::Generics {
+    lt_token: None,
+    params: syn::punctuated::Punctuated::new(),
+    gt_token: None,
+    where_clause: None,
+};

@@ -77,6 +77,7 @@ impl Expr for Path {
 pub struct If<Cond: Expr, Left: Expr>(pub Cond, pub Left);
 impl<Cond: Expr, Left: Expr> Expr for If<Cond, Left> {
     const COMPLEXITY: usize = 1 + Cond::COMPLEXITY + Left::COMPLEXITY;
+    #[inline]
     fn mutate<F, C: Fn(F) -> Option<&'static str>>(&self, _check: C) -> Option<&'static str> {
         Some("AST mutation not yet implemented")
     }
@@ -86,6 +87,7 @@ impl<Cond: Expr, Left: Expr> Expr for If<Cond, Left> {
 pub struct IfElse<Cond: Expr, Left: Expr, Right: Expr>(pub Cond, pub Left, pub Right);
 impl<Cond: Expr, Left: Expr, Right: Expr> Expr for IfElse<Cond, Left, Right> {
     const COMPLEXITY: usize = 1 + Cond::COMPLEXITY + Left::COMPLEXITY + Right::COMPLEXITY;
+    #[inline]
     fn mutate<F, C: Fn(F) -> Option<&'static str>>(&self, _check: C) -> Option<&'static str> {
         Some("AST mutation not yet implemented")
     }
@@ -95,6 +97,7 @@ impl<Cond: Expr, Left: Expr, Right: Expr> Expr for IfElse<Cond, Left, Right> {
 pub struct Add<Left: Expr, Right: Expr>(pub Left, pub Right);
 impl<Left: Expr, Right: Expr> Expr for Add<Left, Right> {
     const COMPLEXITY: usize = 1 + Left::COMPLEXITY + Right::COMPLEXITY;
+    #[inline]
     fn mutate<F, C: Fn(F) -> Option<&'static str>>(&self, _check: C) -> Option<&'static str> {
         Some("AST mutation not yet implemented")
     }
@@ -104,6 +107,7 @@ impl<Left: Expr, Right: Expr> Expr for Add<Left, Right> {
 pub struct Sub<Left: Expr, Right: Expr>(pub Left, pub Right);
 impl<Left: Expr, Right: Expr> Expr for Sub<Left, Right> {
     const COMPLEXITY: usize = 1 + Left::COMPLEXITY + Right::COMPLEXITY;
+    #[inline]
     fn mutate<F, C: Fn(F) -> Option<&'static str>>(&self, _check: C) -> Option<&'static str> {
         Some("AST mutation not yet implemented")
     }
