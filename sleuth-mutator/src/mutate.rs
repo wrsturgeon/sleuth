@@ -70,8 +70,8 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
             single_predicate_from_arguments(attr)?,
             make_fn_trait_bound(f.sig.inputs, f.sig.output)?,
         ),
-        make_test_original(f.sig.ident),
-        make_test_mutants(),
+        make_test_original(f.sig.ident.clone()),
+        make_test_mutants(f.sig.ident),
     )
     .to_tokens(&mut ts);
 
@@ -407,7 +407,8 @@ fn make_test_original(parsed_fn_sig_ident: Ident) -> Item {
 
 /// Builds a test that finds and returns a mutant that passes all checks if one exists.
 #[inline]
-fn make_test_mutants() -> Item {
+#[allow(clippy::too_many_lines)] // not much we can do to shorten it without making this more confusing
+fn make_test_mutants(parsed_fn_sig_ident: Ident) -> Item {
     Item::Fn(syn::ItemFn {
         attrs: vec![syn::Attribute {
             pound_token: token!(Pound),
@@ -485,17 +486,28 @@ fn make_test_mutants() -> Item {
                                         ]),
                                     )),
                                     paren_token: delim_token!(Paren),
-                                    args: punctuate([Expr::Call(syn::ExprCall {
+                                    args: punctuate([Expr::MethodCall(syn::ExprMethodCall {
                                         attrs: vec![],
-                                        func: Box::new(expr_path(
+                                        receiver: Box::new(expr_path(
                                             false,
-                                            punctuate([pathseg(ident("Some"))]),
+                                            punctuate([pathseg(ident("AST"))]),
                                         )),
+                                        dot_token: token!(Dot),
+                                        method: ident("mutate"),
+                                        turbofish: None,
                                         paren_token: delim_token!(Paren),
-                                        args: punctuate([Expr::Verbatim(
-                                            "mutation testing not yet implemented"
-                                                .into_token_stream(),
-                                        )]),
+                                        args: punctuate([
+                                            expr_path(false, punctuate([pathseg(ident("check"))])),
+                                            Expr::Reference(syn::ExprReference {
+                                                attrs: vec![],
+                                                and_token: token!(And),
+                                                mutability: None,
+                                                expr: Box::new(expr_path(
+                                                    false,
+                                                    punctuate([pathseg(parsed_fn_sig_ident)]),
+                                                )),
+                                            }),
+                                        ]),
                                     })]),
                                 }),
                                 None,
