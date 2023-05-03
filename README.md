@@ -6,7 +6,7 @@ This library takes the idea behind mutation testing to its extreme.
 
 Mutation testing believes that small errors in your source code (like `a > b` instead of `a >= b`) are likely errors; when they happen, your tests _should_ fail, and mutation testing frameworks make sure they do. When your test suite fails to recognize a bug, it means you need to add a new test.
 
-Rust already has mutation testing frameworks (like `mutagen`) which I admire and in no way attempt to replace. However, with relatively short functions, this library is an experiment in mutating _all_ of your code, proving by brute force that no function shorter than the one you've written can meet your specifications. This encourages test-driven development without the burden of writing an exhaustive test suite beforehand; after an initial attempt, your tests and your implementation evolve together as you encounter all the ways something might be done on the way to what you wanted all along.
+Rust already has mutation testing frameworks which I admire and don't attempt to replace. This library is an experiment in mutating _all_ of your code, proving by brute force that no function shorter than the one you've written can meet your specifications. It should encourage test-driven development without the burden of writing an exhaustive test suite beforehand; after an initial attempt, your tests and your implementation will evolve together as you encounter all the ways something might be done and eventually narrow down to what you wanted all along.
 
 The library also takes inspiration from property-based testing like Haskell's `QuickCheck`. Your tests can be written with reusable properties and told not to pass with `!`, like the following:
 ```rust

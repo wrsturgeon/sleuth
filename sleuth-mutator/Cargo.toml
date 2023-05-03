@@ -1,6 +1,6 @@
 [package]
 name = "sleuth-mutator"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 authors = ["Will Sturgeon <willstrgn@gmail.com>"]
 description = "A single `proc_macro_attribute` used in the `sleuth` crate."
