@@ -715,6 +715,133 @@ fn make_test_mutants(fn_inputs: Punctuated<syn::FnArg, syn::Token![,]>) -> Item 
                     semi_token: token!(Semi),
                 })),
                 Stmt::Expr(
+                    Expr::If(syn::ExprIf {
+                        attrs: vec![],
+                        if_token: single_token!(If),
+                        cond: Box::new(Expr::MethodCall(syn::ExprMethodCall {
+                            attrs: vec![],
+                            receiver: Box::new(Expr::Call(syn::ExprCall {
+                                attrs: vec![],
+                                func: Box::new(expr_path(
+                                    false,
+                                    punctuate([pathseg(ident("check"))]),
+                                )),
+                                paren_token: delim_token!(Paren),
+                                args: punctuate([Expr::Reference(syn::ExprReference {
+                                    attrs: vec![],
+                                    and_token: token!(And),
+                                    mutability: None,
+                                    expr: Box::new(Expr::Closure(syn::ExprClosure {
+                                        attrs: vec![],
+                                        lifetimes: None,
+                                        constness: None,
+                                        movability: None,
+                                        asyncness: None,
+                                        capture: None,
+                                        or1_token: token!(Or),
+                                        inputs: fn_inputs
+                                            .iter()
+                                            .map(|a| {
+                                                if let syn::FnArg::Typed(pt) = a {
+                                                    pt.pat.as_ref().clone()
+                                                } else {
+                                                    syn::Pat::Ident(syn::PatIdent {
+                                                        attrs: vec![],
+                                                        by_ref: None,
+                                                        mutability: None,
+                                                        ident: ident("self"),
+                                                        subpat: None,
+                                                    })
+                                                }
+                                            })
+                                            .collect(),
+                                        or2_token: token!(Or),
+                                        output: syn::ReturnType::Default,
+                                        body: Box::new(Expr::MethodCall(syn::ExprMethodCall {
+                                            attrs: vec![],
+                                            receiver: Box::new(expr_path(
+                                                false,
+                                                punctuate([pathseg(ident("AST"))]),
+                                            )),
+                                            dot_token: token!(Dot),
+                                            method: ident("eval"),
+                                            turbofish: None,
+                                            paren_token: delim_token!(Paren),
+                                            args: punctuate([Expr::Reference(
+                                                syn::ExprReference {
+                                                    attrs: vec![],
+                                                    and_token: token!(And),
+                                                    mutability: Some(single_token!(Mut)),
+                                                    expr: Box::new(Expr::Struct(syn::ExprStruct {
+                                                        attrs: vec![],
+                                                        qself: None,
+                                                        path: path(
+                                                            false,
+                                                            punctuate([pathseg(ident("Scope"))]),
+                                                        ),
+                                                        brace_token: delim_token!(Brace),
+                                                        fields: {
+                                                            let mut punc = Punctuated::new();
+                                                            for input in &fn_inputs {
+                                                                let id =
+                                                                    if let syn::FnArg::Typed(pt) =
+                                                                        input
+                                                                    {
+                                                                        if let syn::Pat::Ident(i) =
+                                                                            pt.pat.as_ref()
+                                                                        {
+                                                                            i.ident.clone()
+                                                                        } else {
+                                                                            ident("_UNNAMED")
+                                                                        }
+                                                                    } else {
+                                                                        ident("self")
+                                                                    };
+                                                                punc.push(syn::FieldValue {
+                                                                    attrs: vec![],
+                                                                    member: syn::Member::Named(
+                                                                        id.clone(),
+                                                                    ),
+                                                                    colon_token: None,
+                                                                    expr: expr_path(
+                                                                        false,
+                                                                        punctuate([pathseg(id)]),
+                                                                    ),
+                                                                });
+                                                            }
+                                                            punc
+                                                        },
+                                                        dot2_token: None,
+                                                        rest: None,
+                                                    })),
+                                                },
+                                            )]),
+                                        })),
+                                    })),
+                                })]),
+                            })),
+                            dot_token: token!(Dot),
+                            method: ident("is_some"),
+                            turbofish: None,
+                            paren_token: delim_token!(Paren),
+                            args: punctuate([]),
+                        })),
+                        then_branch: syn::Block {
+                            brace_token: delim_token!(Brace),
+                            stmts: vec![Stmt::Expr(
+                                Expr::Return(syn::ExprReturn {
+                                    attrs: vec![],
+                                    return_token: single_token!(Return),
+                                    expr: None,
+                                }),
+                                Some(token!(Semi)),
+                            )],
+                        },
+                        else_branch: None,
+                    }),
+                    None,
+                ),
+                Stmt::Expr(
                     Expr::ForLoop(syn::ExprForLoop {
                         attrs: vec![],
                         label: None,

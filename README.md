@@ -122,6 +122,11 @@ mod is_true_sleuth {
     #[test]
     fn test_mutants() {
         use ::sleuth::Expr;
+
+        // If there's something wrong with our AST, pass and don't mutate
+        // And if it's an error in your logic, `test_original` won't pass
+        if check(&(|b| AST.eval(&mut Scope { b }))).is_some() { return; }
+
         // breadth-first search
         for mutation_severity in 0usize..=AST::COMPLEXITY {
             // . . .
