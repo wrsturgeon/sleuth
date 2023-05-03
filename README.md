@@ -78,8 +78,8 @@ const fn is_true(b: bool) -> bool {
 mod is_true_sleuth {
     use super::*;
 
-    type Ast = ::sleuth::expr::...;
-    const AST: Ast = ::sleuth::expr::...;
+    type Ast = ::sleuth::expr::{... many lines, lots of generics ...};
+    const AST: Ast = ::sleuth::expr::{... instantiation of the above ...};
 
     #[inline(always)]
     pub fn check<_FnToCheck>(f: &_FnToCheck) -> Option<&'static str>
@@ -113,16 +113,20 @@ mod is_true_sleuth {
 
     #[test]
     fn test_original() {
+        // check that the original function passes before mutating
         ::sleuth::testify(check(&is_true))
     }
     
     #[test]
     fn test_mutants() {
         use ::sleuth::Expr;
-        for mutation_severity in 0..AST::COMPLEXITY {
+        // breadth-first search
+        for mutation_severity in 0usize..=AST::COMPLEXITY {
             // very long, not yet complete
         }
     }
 }
 ```
-Note that unless we're testing, the macro has _no effect_. It should be safe to use, even in production-level code.
+You can view this expansion by running `EXPAND=1 cargo expand`. The `EXPAND` environment variable turns `#[cfg(test)]` and `#[test]` into nonsense; `cargo expand` assumes we're not testing, so they won't be shown otherwise.
+
+Note that unless we're testing, the macro has __no effect__. It should be safe to use even in production.

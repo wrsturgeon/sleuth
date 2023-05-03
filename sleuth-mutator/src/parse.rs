@@ -125,8 +125,19 @@ pub fn block(b: &syn::Block) -> MaybeNode {
 /// Parse a set of statements.
 pub fn statements(stmts: &[syn::Stmt]) -> MaybeNode {
     #![allow(clippy::shadow_unrelated)] // for some reason it can't tell this is assignment (I think?)
-    let (mut t, mut e) = node("EndList", [], []);
-    for s in stmts {
+    let (last, not_last) = match stmts.split_last() {
+        None => return Ok(node("EndList", [], [])),
+        Some(splat) => splat,
+    };
+    let (mut t, mut e) = if let syn::Stmt::Expr(e, None) = last {
+        let (r_t, r_e) = expression(e)?; // Last expression with no semicolon => locally returning its value
+        node("LastStatement", [r_t], [r_e])
+    } else {
+        let (s_t, s_e) = statement(last)?;
+        let (l_t, l_e) = node("EndList", [], []);
+        node("StatementList", [s_t, l_t], [s_e, l_e])
+    };
+    for s in not_last {
         let (s_t, s_e) = statement(s)?;
         (t, e) = node("StatementList", [s_t, t], [s_e, e]);
     }
