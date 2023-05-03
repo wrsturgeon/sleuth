@@ -78,36 +78,22 @@ const fn is_true(b: bool) -> bool {
 mod is_true_sleuth {
     use super::*;
 
+    // The exact AST of `is_true` as a unique type.
     type Ast = ::sleuth::expr::{... many lines, lots of generics ...};
     const AST: Ast = ::sleuth::expr::{... instantiation of the above ...};
 
-    #[inline(always)]
+    // Checks, for any function, whether it fulfills the test suite for `is_true`.
     pub fn check<_FnToCheck>(f: &_FnToCheck) -> Option<&'static str>
       where
         _FnToCheck: Fn(bool) -> bool + ::core::panic::RefUnwindSafe
     {
         match std::panic::catch_unwind(|| crate::sleuth::does_nothing(f, false)) {
-            Ok(b) => {
-                if !b { Some("crate::sleuth::does_nothing(f, false)") } else { None }
-            }
-            _ => {
-                Some(
-                    "crate::sleuth::does_nothing(f, false) PANICKED (see two lines above)",
-                )
-            }
+            Ok(b) => if !b { Some("crate::sleuth::does_nothing(f, false)") } else { None },
+            _ => Some("crate::sleuth::does_nothing(f, false) PANICKED (see two lines above)"),
         }
-            .or_else(|| match std::panic::catch_unwind(|| crate::sleuth::does_nothing(
-                f,
-                true,
-            )) {
-                Ok(b) => {
-                    if !b { Some("crate::sleuth::does_nothing(f, true)") } else { None }
-                }
-                _ => {
-                    Some(
-                        "crate::sleuth::does_nothing(f, true) PANICKED (see two lines above)",
-                    )
-                }
+            .or_else(|| match std::panic::catch_unwind(|| crate::sleuth::does_nothing(f, true)) {
+                Ok(b) => if !b { Some("crate::sleuth::does_nothing(f, true)") } else { None },
+                _ => Some("crate::sleuth::does_nothing(f, true) PANICKED (see two lines above)"),
             })
     }
 
