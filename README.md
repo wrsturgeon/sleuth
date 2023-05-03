@@ -81,6 +81,19 @@ mod is_true_sleuth {
     // A struct with each scoped variable.
     struct Scope { pub b: bool }
 
+    // A fully implemented AST node for each function argument.
+    mod scoped_variables {
+        pub struct B; // CamelCase by convention but referring to the argument `b`
+        impl ::sleuth::Expr for B {
+            type Return = bool;
+            type Scope = super::Scope;
+            const COMPLEXITY: usize = 1;
+            fn eval(&self, scope: &mut Self::Scope) -> Self::Return {
+                scope.b
+            }
+        }
+    }
+
     // Instantiation of a unique type for the exact AST of `is_true`.
     type Ast = ::sleuth::expr::{... many lines, lots of generics ...};
     const AST: Ast = ::sleuth::expr::{... instantiation of the above ...};
@@ -120,6 +133,6 @@ mod is_true_sleuth {
     }
 }
 ```
-You can view this expansion by running `EXPAND=1 cargo expand`. The `EXPAND` environment variable turns `#[cfg(test)]` and `#[test]` into nonsense; `cargo expand` assumes we're not testing, so they won't be shown otherwise.
+You can view this expansion by running `EXPAND=1 cargo expand`. The `EXPAND` environment variable turns `#[cfg(test)]` and `#[test]` into nonsense so that `cargo expand` doesn't assume we're not testing and delete the whole module.
 
 Note that unless we're testing, the macro has __no effect__. It should be safe to use even in production.

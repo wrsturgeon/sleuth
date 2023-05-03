@@ -1,6 +1,6 @@
 [package]
 name = "sleuth"
-version = "0.1.4"
+version = "0.2.0"
 edition = "2021"
 description = "Extremely opinionated testing framework generating an exact specification and reducing code to its minimal implementation."
 license = "Zlib"
