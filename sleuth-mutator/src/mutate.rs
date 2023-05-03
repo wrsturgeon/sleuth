@@ -93,7 +93,7 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
     // Make the #[cfg(test)] module holding everything we'll ever use
     make_fn_specific_module(
         ident(&(f.sig.ident.to_string() + "_sleuth")),
-        make_scoped_variables(&fn_inputs)?,
+        make_scoped_variables(&fn_inputs),
         make_scope_struct(fn_inputs),
         ast_type,
         ast_init,
@@ -228,11 +228,10 @@ fn single_predicate_from_arguments(attr: TokenStream) -> Result<Expr, syn::Error
 }
 
 /// Make a module containing AST nodes for each local variable.
+#[allow(clippy::too_many_lines)]
 #[inline]
-fn make_scoped_variables(
-    fn_inputs: &Punctuated<syn::Field, syn::Token![,]>,
-) -> Result<Item, syn::Error> {
-    Ok(Item::Mod(syn::ItemMod {
+fn make_scoped_variables(fn_inputs: &Punctuated<syn::Field, syn::Token![,]>) -> Item {
+    Item::Mod(syn::ItemMod {
         attrs: vec![],
         vis: syn::Visibility::Inherited,
         unsafety: None,
@@ -329,7 +328,7 @@ fn make_scoped_variables(
                                     path: path(false, punctuate([pathseg(ident("usize"))])),
                                 }),
                                 eq_token: token!(Eq),
-                                expr: Expr::Verbatim(1usize.into_token_stream()),
+                                expr: Expr::Verbatim(1_usize.into_token_stream()),
                                 semi_token: token!(Semi),
                             }),
                             syn::ImplItem::Fn(syn::ImplItemFn {
@@ -430,7 +429,7 @@ fn make_scoped_variables(
                                             member: syn::Member::Named(
                                                 f.ident.as_ref().map_or_else(
                                                     || ident("_UNNAMED"),
-                                                    |i| i.clone(),
+                                                    Clone::clone,
                                                 ),
                                             ),
                                         }),
@@ -444,7 +443,7 @@ fn make_scoped_variables(
                 .collect(),
         )),
         semi: None,
-    }))
+    })
 }
 
 /// Make a struct representing each function arguments. **`let` bindings TODO.**
@@ -784,6 +783,7 @@ fn make_test_mutants(parsed_fn_sig_ident: Ident) -> Item {
 }
 
 /// Builds a module with a non-panicking checker and a test using the former to know when to panic.
+#[allow(clippy::too_many_arguments)]
 #[inline]
 fn make_fn_specific_module(
     mod_ident: Ident,

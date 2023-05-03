@@ -170,6 +170,7 @@ pub fn literal(e: &syn::ExprLit) -> MaybeNode {
                     syn::Lit::Bool(_) => "bool",
                     syn::Lit::Int(i) => {
                         let suffix = i.suffix();
+                        #[allow(clippy::redundant_else)] // another false positive
                         if suffix.is_empty() {
                             return Err(syn::Error::new(i.span(),"Currently `syn` can't figure out integer literal types, so all integer literals require a type suffix."));
                         } else {
