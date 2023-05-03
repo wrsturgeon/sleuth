@@ -94,7 +94,7 @@ impl<Cond: Expr<Return = bool>, Left: Expr<Return = ()>> Expr for If<Cond, Left>
     #[inline(always)]
     fn eval<Scope>(&self, scope: &mut Scope) -> Self::Return {
         if self.0.eval(scope) {
-            self.1.eval(scope)
+            self.1.eval(scope);
         }
     }
 }
@@ -123,15 +123,16 @@ impl<Cond: Expr<Return = bool>, Left: Expr, Right: Expr<Return = Left::Return>> 
 /// Addition, e.g. `a + b`.
 pub struct Add<Left: Expr, Right: Expr>(pub Left, pub Right)
 where
-    Left::Return: std::ops::Add<Right::Return>;
+    Left::Return: core::ops::Add<Right::Return>;
 impl<Left: Expr, Right: Expr> Expr for Add<Left, Right>
 where
-    Left::Return: std::ops::Add<Right::Return>,
+    Left::Return: core::ops::Add<Right::Return>,
 {
-    type Return = <Left::Return as std::ops::Add<Right::Return>>::Output;
+    type Return = <Left::Return as core::ops::Add<Right::Return>>::Output;
     const COMPLEXITY: usize = 1 + Left::COMPLEXITY + Right::COMPLEXITY;
     #[inline(always)]
     fn eval<Scope>(&self, scope: &mut Scope) -> Self::Return {
+        #![allow(clippy::arithmetic_side_effects)]
         self.0.eval(scope) + self.1.eval(scope)
     }
 }
@@ -139,15 +140,16 @@ where
 /// Subtraction, e.g. `a - b`.
 pub struct Sub<Left: Expr, Right: Expr>(pub Left, pub Right)
 where
-    Left::Return: std::ops::Sub<Right::Return>;
+    Left::Return: core::ops::Sub<Right::Return>;
 impl<Left: Expr, Right: Expr> Expr for Sub<Left, Right>
 where
-    Left::Return: std::ops::Sub<Right::Return>,
+    Left::Return: core::ops::Sub<Right::Return>,
 {
-    type Return = <Left::Return as std::ops::Sub<Right::Return>>::Output;
+    type Return = <Left::Return as core::ops::Sub<Right::Return>>::Output;
     const COMPLEXITY: usize = 1 + Left::COMPLEXITY + Right::COMPLEXITY;
     #[inline(always)]
     fn eval<Scope>(&self, scope: &mut Scope) -> Self::Return {
+        #![allow(clippy::arithmetic_side_effects)]
         self.0.eval(scope) - self.1.eval(scope)
     }
 }
