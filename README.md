@@ -111,7 +111,11 @@ mod is_true_sleuth {
         use ::sleuth::Expr;
         // breadth-first search
         for mutation_severity in 0usize..=AST::COMPLEXITY {
+            // . . .
             // very long, not yet complete
+            // . . .
+            // eventually, with a different value in place of `AST` each time:
+            ::sleuth::testify(check(&(|b| AST.eval(&mut Scope { b }))))
         }
     }
 }
