@@ -78,7 +78,10 @@ const fn is_true(b: bool) -> bool {
 mod is_true_sleuth {
     use super::*;
 
-    // The exact AST of `is_true` as a unique type.
+    // A struct with each scoped variable.
+    struct Scope { pub b: bool }
+
+    // Instantiation of a unique type for the exact AST of `is_true`.
     type Ast = ::sleuth::expr::{... many lines, lots of generics ...};
     const AST: Ast = ::sleuth::expr::{... instantiation of the above ...};
 
