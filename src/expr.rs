@@ -2,8 +2,6 @@
 
 #![allow(clippy::inline_always)] // AST nodes shouldn't cause any runtime overhead
 
-// TODO: change Option<&'static str> to Result<SOME REPRESENTATION OF ALL VARIABLES IN SCOPE, Err wrapper around &'static str>
-
 /// Anything that can serve as an AST node and do everything we need it to.
 pub trait Expr {
     /// Return type of `eval` (if not an error).
@@ -34,7 +32,7 @@ impl<T: StatementNode> Expr for Block<T> {
 /// Haskell-like "list" elements (either the end of the list or a cons).
 pub trait StatementNode: Expr {}
 
-/// Delimiter at the end of a "list" of statements, like `...:[]` in Haskell.
+/// Delimiter at the end of a "list" of statements, like `...:[]` in Haskell. **Necessary because of empty blocks.**
 pub struct EndList;
 impl Expr for EndList {
     type Return = ();
@@ -64,8 +62,8 @@ impl<S: Expr<Return = ()>, NextStatement: StatementNode> StatementNode
 }
 
 /// Wrapper around the last statement in a block without a semicolon, locally returning its value.
-pub struct LastStatement<S: Expr>(pub S);
-impl<S: Expr> Expr for LastStatement<S> {
+pub struct ImplicitReturn<S: Expr>(pub S);
+impl<S: Expr> Expr for ImplicitReturn<S> {
     type Return = S::Return;
     const COMPLEXITY: usize = S::COMPLEXITY;
     #[inline]
@@ -73,7 +71,7 @@ impl<S: Expr> Expr for LastStatement<S> {
         self.0.eval(scope)
     }
 }
-impl<S: Expr> StatementNode for LastStatement<S> {}
+impl<S: Expr> StatementNode for ImplicitReturn<S> {}
 
 /// A literal, like `true`, `3`, `3.14159`, ...
 pub struct Literal<T: Copy /* does NOT have to impl Expr */>(pub T);

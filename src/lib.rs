@@ -67,9 +67,9 @@ pub use sleuth_mutator::*;
 /// Turns the output of a `timid_assert!` into a test.
 /// # Panics
 /// When given an argument that is not `None` (with almost exactly the message given).
+#[cfg(test)]
 #[inline]
 pub fn testify(check_output: Option<&'static str>) {
-    #![allow(clippy::panic)]
     use colored::Colorize;
     let _: Option<()> = check_output.and_then(|e| {
         panic!(

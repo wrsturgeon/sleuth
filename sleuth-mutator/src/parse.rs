@@ -1,56 +1,14 @@
 //! Utilities for consuming a usual function and spitting out an AST-aligned representation we can mutate later.
 
-#![allow(
-    dead_code,
-    unreachable_code,
-    clippy::todo,
-    clippy::diverging_sub_expression,
-    clippy::panic_in_result_fn
-)] // TODO: remove
-
 use crate::{expr_path, ident, path, pathseg, punctuate};
 use quote::ToTokens;
-use syn::{punctuated::Punctuated, spanned::Spanned, Expr, TypePath};
+use syn::{spanned::Spanned, Expr, TypePath};
 
 /// Ask *you* for your contributions!
 macro_rules! community_input {
     ($arg:expr) => {
         return Err(syn::Error::new($arg.span(), format!("Sleuth doesn't know how to handle this case yet, but we'd love your help! If you're interested, please look into what went wrong and open a PR.\r\nFailed at {}:{}\r\n{} = {:#?}", file!(), line!(), stringify!($arg), $arg)))
     };
-}
-
-/// Call one of our in-house functions mimicking an AST node.
-#[inline]
-fn ast_fn_expr(fnname: &str) -> Expr {
-    Expr::Path(syn::ExprPath {
-        attrs: vec![],
-        qself: None,
-        path: ast_fn(fnname),
-    })
-}
-
-/// Call one of our in-house functions mimicking an AST node.
-#[inline]
-fn ast_fn(fnname: &str) -> syn::Path {
-    path(
-        true,
-        punctuate([
-            pathseg(ident(crate::CRATE_NAME)),
-            pathseg(ident("f")),
-            pathseg(ident(fnname)),
-        ]),
-    )
-}
-
-/// Call one of our in-house functions mimicking an AST node.
-#[inline]
-fn call(fnname: &str, args: Punctuated<Expr, syn::token::Comma>) -> Expr {
-    Expr::Call(syn::ExprCall {
-        attrs: vec![],
-        func: Box::new(ast_fn_expr(fnname)),
-        paren_token: delim_token!(Paren),
-        args,
-    })
 }
 
 /// Type and initializer, both starting with `::sleuth::expr::`
@@ -124,14 +82,14 @@ pub fn block(b: &syn::Block) -> MaybeNode {
 
 /// Parse a set of statements.
 pub fn statements(stmts: &[syn::Stmt]) -> MaybeNode {
-    #![allow(clippy::shadow_unrelated)] // for some reason it can't tell this is assignment (I think?)
+    #![allow(clippy::shadow_unrelated)] // for some reason it can't tell that `(t, e) = ...` is assignment (I think?)
     let (last, not_last) = match stmts.split_last() {
         None => return Ok(node("EndList", [], [])),
         Some(splat) => splat,
     };
     let (mut t, mut e) = if let syn::Stmt::Expr(e, None) = last {
         let (r_t, r_e) = expression(e)?; // Last expression with no semicolon => locally returning its value
-        node("LastStatement", [r_t], [r_e])
+        node("ImplicitReturn", [r_t], [r_e])
     } else {
         let (s_t, s_e) = statement(last)?;
         let (l_t, l_e) = node("EndList", [], []);

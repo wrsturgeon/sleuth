@@ -61,9 +61,38 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
     // Replace the original function definition with an equivalent callable struct that makes the AST explicit
     let (ast_type, ast_init) = crate::parse::function(&f)?;
 
+    let mut fn_inputs = Punctuated::new();
+    for arg in &f.sig.inputs {
+        fn_inputs.push(match arg {
+            syn::FnArg::Receiver(_) => {
+                return Err(syn::Error::new(
+                    arg.span(),
+                    "Somehow got a method receiver rather than an argument",
+                ))
+            }
+            syn::FnArg::Typed(pt) => match pt.pat.as_ref() {
+                syn::Pat::Ident(i) => syn::Field {
+                    attrs: vec![],
+                    vis: syn::Visibility::Public(single_token!(Pub)),
+                    mutability: syn::FieldMutability::None,
+                    ident: Some(i.ident.clone()),
+                    colon_token: Some(token!(Colon)),
+                    ty: pt.ty.as_ref().clone(),
+                },
+                _ => {
+                    return Err(syn::Error::new(
+                        pt.span(),
+                        "Argument name is somehow not an identifier",
+                    ))
+                }
+            },
+        });
+    }
+
     // Make a #[cfg(test)] module with a checker (that doesn't panic and isn't a test) and a test (that calls the checker)
     make_fn_specific_module(
         ident(&(f.sig.ident.to_string() + "_sleuth")),
+        make_scope_struct(fn_inputs),
         ast_type,
         ast_init,
         make_checker(
@@ -193,6 +222,23 @@ fn single_predicate_from_arguments(attr: TokenStream) -> Result<Expr, syn::Error
             proc_macro2::Span::call_site(),
             "No predicates supplied to the macro attribute",
         )
+    })
+}
+
+/// Make a struct representing each function arguments. **`let` bindings TODO.**
+#[inline]
+fn make_scope_struct(fn_inputs: Punctuated<syn::Field, syn::Token![,]>) -> Item {
+    Item::Struct(syn::ItemStruct {
+        attrs: vec![],
+        vis: syn::Visibility::Inherited,
+        struct_token: single_token!(Struct),
+        ident: ident("Scope"),
+        generics: crate::NO_GENERICS,
+        fields: syn::Fields::Named(syn::FieldsNamed {
+            brace_token: delim_token!(Brace),
+            named: fn_inputs,
+        }),
+        semi_token: None,
     })
 }
 
@@ -525,6 +571,7 @@ fn make_test_mutants(parsed_fn_sig_ident: Ident) -> Item {
 #[inline]
 fn make_fn_specific_module(
     mod_ident: Ident,
+    scope_struct: Item,
     ast_type: syn::TypePath,
     ast_init: Expr,
     check_fn: Item,
@@ -563,6 +610,7 @@ fn make_fn_specific_module(
                     }),
                     semi_token: token!(Semi),
                 }),
+                scope_struct,
                 syn::Item::Type(syn::ItemType {
                     attrs: vec![],
                     vis: syn::Visibility::Inherited,
