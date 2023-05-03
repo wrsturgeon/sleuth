@@ -20,6 +20,6 @@ crate-type = ["lib"]
 
 [dependencies]
 colored = ">=2"
-sleuth-mutator = { version = ">=0", path = "sleuth-mutator" }
 prettyplease = ">=0.2"
+sleuth-mutator = { version = ">=0", path = "sleuth-mutator" }
 syn = { version = ">=2", features = ["extra-traits", "full"] }

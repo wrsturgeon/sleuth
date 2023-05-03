@@ -47,7 +47,7 @@ const fn id(a: u8) -> u8 {
 )]
 #[allow(dead_code, clippy::arithmetic_side_effects)]
 const fn add_one(x: u8) -> u8 {
-    x + 1
+    x + 1_u8
 }
 
 /// Subtracts one from its argument.
@@ -57,7 +57,7 @@ const fn add_one(x: u8) -> u8 {
 )]
 #[allow(dead_code, clippy::arithmetic_side_effects)]
 const fn sub_one(x: u8) -> u8 {
-    x - 1
+    x - 1_u8
 }
 
 /// Stupid function one might write on a lack of sleep (not that I would currently know anything about that)

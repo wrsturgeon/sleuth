@@ -1,9 +1,9 @@
-pub fn functions_in_file<S: core::convert::AsRef<std::path::Path>>(
+pub fn functions_in_file<S: core::convert::AsRef<core::path::Path>>(
     fname: S,
 ) -> anyhow::Result<Vec<syn::ItemFn>> {
-    let mut file = std::fs::File::open(fname)?;
+    let mut file = core::fs::File::open(fname)?;
     let mut content = String::new();
-    std::io::Read::read_to_string(&mut file, &mut content)?;
+    core::io::Read::read_to_string(&mut file, &mut content)?;
 
     Ok(syn::parse_file(&content)?
         .items

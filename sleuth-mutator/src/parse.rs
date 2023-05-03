@@ -20,48 +20,47 @@ fn node<const N: usize, const M: usize>(
 ) -> Node {
     let mut whole_enchilada =
         punctuate([pathseg(ident(crate::CRATE_NAME)), pathseg(ident("expr"))]);
+    let mut generic_args =
+        punctuate(generics.map(move |t| syn::GenericArgument::Type(syn::Type::Path(t))));
+    let mut init_args = punctuate(args);
+    generic_args.push(syn::GenericArgument::Type(syn::Type::Path(TypePath {
+        qself: None,
+        path: path(false, punctuate([pathseg(ident("Scope"))])),
+    })));
+    init_args.push(expr_path(
+        false,
+        punctuate([
+            pathseg(ident("core")),
+            pathseg(ident("marker")),
+            pathseg(ident("PhantomData")),
+        ]),
+    ));
     whole_enchilada.push(syn::PathSegment {
         ident: ident(what),
-        arguments: if N == 0 {
-            syn::PathArguments::None
-        } else {
-            syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
-                colon2_token: Some(dual_token!(PathSep)),
-                lt_token: token!(Lt),
-                args: punctuate(
-                    generics.map(move |t| syn::GenericArgument::Type(syn::Type::Path(t))),
-                ),
-                gt_token: token!(Gt),
-            })
-        },
+        arguments: syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
+            colon2_token: Some(dual_token!(PathSep)),
+            lt_token: token!(Lt),
+            args: generic_args,
+            gt_token: token!(Gt),
+        }),
     });
     (
-        syn::TypePath {
+        TypePath {
             qself: None,
             path: path(true, whole_enchilada.clone()),
         },
-        if M == 0 {
-            expr_path(
+        Expr::Call(syn::ExprCall {
+            attrs: vec![],
+            func: Box::new(expr_path(
                 true,
                 whole_enchilada
                     .into_iter()
                     .map(move |p| pathseg(p.ident) /* no turbofish */)
                     .collect(),
-            )
-        } else {
-            Expr::Call(syn::ExprCall {
-                attrs: vec![],
-                func: Box::new(expr_path(
-                    true,
-                    whole_enchilada
-                        .into_iter()
-                        .map(move |p| pathseg(p.ident) /* no turbofish */)
-                        .collect(),
-                )),
-                paren_token: delim_token!(Paren),
-                args: punctuate(args),
-            })
-        },
+            )),
+            paren_token: delim_token!(Paren),
+            args: init_args,
+        }),
     )
 }
 /// A type and its instantiation.
@@ -112,14 +111,29 @@ pub fn statement(s: &syn::Stmt) -> MaybeNode {
 
 /// Parse an expression into an equivalent expression that can be mutated.
 pub fn expression(e: &Expr) -> MaybeNode {
+    use heck::ToUpperCamelCase;
     match e {
-        p @ Expr::Path(_) => Ok(node(
-            "Path",
-            [],
-            [Expr::Verbatim(
-                p.to_token_stream().to_string().into_token_stream(),
-            )],
-        )),
+        p @ Expr::Path(_) => {
+            let punc = punctuate([
+                pathseg(ident("scoped_variables")),
+                pathseg(ident(
+                    p.to_token_stream()
+                        .to_string()
+                        .to_upper_camel_case()
+                        .as_str(),
+                )),
+            ]);
+            Ok((
+                TypePath {
+                    qself: None,
+                    path: syn::Path {
+                        leading_colon: None,
+                        segments: punc.clone(),
+                    },
+                },
+                expr_path(false, punc),
+            ))
+        }
         Expr::Lit(li) => literal(li),
         Expr::Binary(b) => binary_expression(b),
         Expr::If(i) => conditional(i),
@@ -148,13 +162,20 @@ pub fn conditional(e: &syn::ExprIf) -> MaybeNode {
 pub fn literal(e: &syn::ExprLit) -> MaybeNode {
     Ok(node(
         "Literal",
-        [syn::TypePath {
+        [TypePath {
             qself: None,
             path: path(
                 false,
                 punctuate([pathseg(ident(match &e.lit {
                     syn::Lit::Bool(_) => "bool",
-                    syn::Lit::Int(_) => "isize",
+                    syn::Lit::Int(i) => {
+                        let suffix = i.suffix();
+                        if suffix.is_empty() {
+                            return Err(syn::Error::new(i.span(),"Currently `syn` can't figure out integer literal types, so all integer literals require a type suffix."));
+                        } else {
+                            suffix
+                        }
+                    }
                     _ => community_input!(e.lit),
                 }))]),
             ),

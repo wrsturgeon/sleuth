@@ -1,6 +1,6 @@
 //! Behind-the-scenes implementation of the publicly exported macro.
 
-use crate::{expr_path, ident, path, pathseg, punctuate};
+use crate::{expr_path, ident, path, pathseg, punctuate, NO_GENERICS};
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::ToTokens;
 use syn::{punctuated::Punctuated, spanned::Spanned, Expr, Item, Stmt, Type};
@@ -61,6 +61,7 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
     // Replace the original function definition with an equivalent callable struct that makes the AST explicit
     let (ast_type, ast_init) = crate::parse::function(&f)?;
 
+    // Make a struct holding all function arguments
     let mut fn_inputs = Punctuated::new();
     for arg in &f.sig.inputs {
         fn_inputs.push(match arg {
@@ -89,9 +90,10 @@ pub fn implementation(attr: TokenStream, input: TokenStream) -> Result<TokenStre
         });
     }
 
-    // Make a #[cfg(test)] module with a checker (that doesn't panic and isn't a test) and a test (that calls the checker)
+    // Make the #[cfg(test)] module holding everything we'll ever use
     make_fn_specific_module(
         ident(&(f.sig.ident.to_string() + "_sleuth")),
+        make_scoped_variables(&fn_inputs)?,
         make_scope_struct(fn_inputs),
         ast_type,
         ast_init,
@@ -225,15 +227,235 @@ fn single_predicate_from_arguments(attr: TokenStream) -> Result<Expr, syn::Error
     })
 }
 
+/// Make a module containing AST nodes for each local variable.
+#[inline]
+fn make_scoped_variables(
+    fn_inputs: &Punctuated<syn::Field, syn::Token![,]>,
+) -> Result<Item, syn::Error> {
+    Ok(Item::Mod(syn::ItemMod {
+        attrs: vec![],
+        vis: syn::Visibility::Inherited,
+        unsafety: None,
+        mod_token: single_token!(Mod),
+        ident: ident("scoped_variables"),
+        content: Some((
+            delim_token!(Brace),
+            fn_inputs
+                .into_iter()
+                .map(|f| {
+                    use heck::ToUpperCamelCase;
+                    Item::Struct(syn::ItemStruct {
+                        attrs: vec![],
+                        vis: syn::Visibility::Public(single_token!(Pub)),
+                        struct_token: single_token!(Struct),
+                        ident: f.ident.as_ref().map_or_else(
+                            || ident("_UNNAMED"),
+                            |i| ident(i.to_string().to_upper_camel_case().as_str()),
+                        ),
+                        generics: NO_GENERICS,
+                        fields: syn::Fields::Unit,
+                        semi_token: Some(token!(Semi)),
+                    })
+                })
+                .chain(fn_inputs.into_iter().map(|f| {
+                    use heck::ToUpperCamelCase;
+                    Item::Impl(syn::ItemImpl {
+                        attrs: vec![],
+                        defaultness: None,
+                        unsafety: None,
+                        impl_token: single_token!(Impl),
+                        generics: NO_GENERICS,
+                        trait_: Some((
+                            None,
+                            path(
+                                true,
+                                punctuate([pathseg(ident("sleuth")), pathseg(ident("Expr"))]),
+                            ),
+                            single_token!(For),
+                        )),
+                        self_ty: Box::new(Type::Path(syn::TypePath {
+                            qself: None,
+                            path: path(
+                                false,
+                                punctuate([pathseg(f.ident.as_ref().map_or_else(
+                                    || ident("_UNNAMED"),
+                                    |i| ident(i.to_string().to_upper_camel_case().as_str()),
+                                ))]),
+                            ),
+                        })),
+                        brace_token: delim_token!(Brace),
+                        items: vec![
+                            syn::ImplItem::Type(syn::ImplItemType {
+                                attrs: vec![],
+                                vis: syn::Visibility::Inherited,
+                                defaultness: None,
+                                type_token: single_token!(Type),
+                                ident: ident("Return"),
+                                generics: NO_GENERICS,
+                                eq_token: token!(Eq),
+                                ty: f.ty.clone(),
+                                semi_token: token!(Semi),
+                            }),
+                            syn::ImplItem::Type(syn::ImplItemType {
+                                attrs: vec![],
+                                vis: syn::Visibility::Inherited,
+                                defaultness: None,
+                                type_token: single_token!(Type),
+                                ident: ident("Scope"),
+                                generics: NO_GENERICS,
+                                eq_token: token!(Eq),
+                                ty: Type::Path(syn::TypePath {
+                                    qself: None,
+                                    path: path(
+                                        false,
+                                        punctuate([
+                                            pathseg(ident("super")),
+                                            pathseg(ident("Scope")),
+                                        ]),
+                                    ),
+                                }),
+                                semi_token: token!(Semi),
+                            }),
+                            syn::ImplItem::Const(syn::ImplItemConst {
+                                attrs: vec![],
+                                vis: syn::Visibility::Inherited,
+                                defaultness: None,
+                                const_token: single_token!(Const),
+                                ident: ident("COMPLEXITY"),
+                                generics: NO_GENERICS,
+                                colon_token: token!(Colon),
+                                ty: Type::Path(syn::TypePath {
+                                    qself: None,
+                                    path: path(false, punctuate([pathseg(ident("usize"))])),
+                                }),
+                                eq_token: token!(Eq),
+                                expr: Expr::Verbatim(1usize.into_token_stream()),
+                                semi_token: token!(Semi),
+                            }),
+                            syn::ImplItem::Fn(syn::ImplItemFn {
+                                attrs: vec![syn::Attribute {
+                                    pound_token: token!(Pound),
+                                    style: syn::AttrStyle::Outer,
+                                    bracket_token: delim_token!(Bracket),
+                                    meta: syn::Meta::List(syn::MetaList {
+                                        path: path(false, punctuate([pathseg(ident("inline"))])),
+                                        delimiter: syn::MacroDelimiter::Paren(delim_token!(Paren)),
+                                        tokens: ident("always").to_token_stream(),
+                                    }),
+                                }],
+                                vis: syn::Visibility::Inherited,
+                                defaultness: None,
+                                sig: syn::Signature {
+                                    constness: None,
+                                    asyncness: None,
+                                    unsafety: None,
+                                    abi: None,
+                                    fn_token: single_token!(Fn),
+                                    ident: ident("eval"),
+                                    generics: NO_GENERICS,
+                                    paren_token: delim_token!(Paren),
+                                    inputs: punctuate([
+                                        syn::FnArg::Receiver(syn::Receiver {
+                                            attrs: vec![],
+                                            reference: Some((token!(And), None)),
+                                            mutability: None,
+                                            self_token: single_token!(SelfValue),
+                                            colon_token: None,
+                                            ty: Box::new(Type::Reference(syn::TypeReference {
+                                                and_token: token!(And),
+                                                lifetime: None,
+                                                mutability: None,
+                                                elem: Box::new(Type::Path(syn::TypePath {
+                                                    qself: None,
+                                                    path: path(
+                                                        false,
+                                                        punctuate([pathseg(ident("Self"))]),
+                                                    ),
+                                                })),
+                                            })),
+                                        }),
+                                        syn::FnArg::Typed(syn::PatType {
+                                            attrs: vec![],
+                                            pat: Box::new(syn::Pat::Path(syn::ExprPath {
+                                                attrs: vec![],
+                                                qself: None,
+                                                path: path(
+                                                    false,
+                                                    punctuate([pathseg(ident("scope"))]),
+                                                ),
+                                            })),
+                                            colon_token: token!(Colon),
+                                            ty: Box::new(Type::Reference(syn::TypeReference {
+                                                and_token: token!(And),
+                                                lifetime: None,
+                                                mutability: Some(single_token!(Mut)),
+                                                elem: Box::new(Type::Path(syn::TypePath {
+                                                    qself: None,
+                                                    path: path(
+                                                        false,
+                                                        punctuate([
+                                                            pathseg(ident("Self")),
+                                                            pathseg(ident("Scope")),
+                                                        ]),
+                                                    ),
+                                                })),
+                                            })),
+                                        }),
+                                    ]),
+                                    variadic: None,
+                                    output: syn::ReturnType::Type(
+                                        dual_token!(RArrow),
+                                        Box::new(Type::Path(syn::TypePath {
+                                            qself: None,
+                                            path: path(
+                                                false,
+                                                punctuate([
+                                                    pathseg(ident("Self")),
+                                                    pathseg(ident("Return")),
+                                                ]),
+                                            ),
+                                        })),
+                                    ),
+                                },
+                                block: syn::Block {
+                                    brace_token: delim_token!(Brace),
+                                    stmts: vec![syn::Stmt::Expr(
+                                        Expr::Field(syn::ExprField {
+                                            attrs: vec![],
+                                            base: Box::new(expr_path(
+                                                false,
+                                                punctuate([pathseg(ident("scope"))]),
+                                            )),
+                                            dot_token: token!(Dot),
+                                            member: syn::Member::Named(
+                                                f.ident.as_ref().map_or_else(
+                                                    || ident("_UNNAMED"),
+                                                    |i| i.clone(),
+                                                ),
+                                            ),
+                                        }),
+                                        None,
+                                    )],
+                                },
+                            }),
+                        ],
+                    })
+                }))
+                .collect(),
+        )),
+        semi: None,
+    }))
+}
+
 /// Make a struct representing each function arguments. **`let` bindings TODO.**
 #[inline]
 fn make_scope_struct(fn_inputs: Punctuated<syn::Field, syn::Token![,]>) -> Item {
     Item::Struct(syn::ItemStruct {
         attrs: vec![],
-        vis: syn::Visibility::Inherited,
+        vis: syn::Visibility::Public(single_token!(Pub)),
         struct_token: single_token!(Struct),
         ident: ident("Scope"),
-        generics: crate::NO_GENERICS,
+        generics: NO_GENERICS,
         fields: syn::Fields::Named(syn::FieldsNamed {
             brace_token: delim_token!(Brace),
             named: fn_inputs,
@@ -414,7 +636,7 @@ fn make_test_original(parsed_fn_sig_ident: Ident) -> Item {
             abi: None,
             fn_token: single_token!(Fn),
             ident: ident("test_original"),
-            generics: crate::NO_GENERICS,
+            generics: NO_GENERICS,
             paren_token: delim_token!(Paren),
             inputs: Punctuated::new(),
             variadic: None,
@@ -470,7 +692,7 @@ fn make_test_mutants(parsed_fn_sig_ident: Ident) -> Item {
             abi: None,
             fn_token: single_token!(Fn),
             ident: ident("test_mutants"),
-            generics: crate::NO_GENERICS,
+            generics: NO_GENERICS,
             paren_token: delim_token!(Paren),
             inputs: Punctuated::new(),
             variadic: None,
@@ -532,28 +754,22 @@ fn make_test_mutants(parsed_fn_sig_ident: Ident) -> Item {
                                         ]),
                                     )),
                                     paren_token: delim_token!(Paren),
-                                    args: punctuate([Expr::MethodCall(syn::ExprMethodCall {
+                                    args: punctuate([Expr::Call(syn::ExprCall {
                                         attrs: vec![],
-                                        receiver: Box::new(expr_path(
+                                        func: Box::new(expr_path(
                                             false,
-                                            punctuate([pathseg(ident("AST"))]),
+                                            punctuate([pathseg(ident("check"))]),
                                         )),
-                                        dot_token: token!(Dot),
-                                        method: ident("mutate"),
-                                        turbofish: None,
                                         paren_token: delim_token!(Paren),
-                                        args: punctuate([
-                                            expr_path(false, punctuate([pathseg(ident("check"))])),
-                                            Expr::Reference(syn::ExprReference {
-                                                attrs: vec![],
-                                                and_token: token!(And),
-                                                mutability: None,
-                                                expr: Box::new(expr_path(
-                                                    false,
-                                                    punctuate([pathseg(parsed_fn_sig_ident)]),
-                                                )),
-                                            }),
-                                        ]),
+                                        args: punctuate([Expr::Reference(syn::ExprReference {
+                                            attrs: vec![],
+                                            and_token: token!(And),
+                                            mutability: None,
+                                            expr: Box::new(expr_path(
+                                                false,
+                                                punctuate([pathseg(parsed_fn_sig_ident)]),
+                                            )),
+                                        })]),
                                     })]),
                                 }),
                                 None,
@@ -571,6 +787,7 @@ fn make_test_mutants(parsed_fn_sig_ident: Ident) -> Item {
 #[inline]
 fn make_fn_specific_module(
     mod_ident: Ident,
+    scoped_vars: Item,
     scope_struct: Item,
     ast_type: syn::TypePath,
     ast_init: Expr,
@@ -610,13 +827,14 @@ fn make_fn_specific_module(
                     }),
                     semi_token: token!(Semi),
                 }),
+                scoped_vars,
                 scope_struct,
                 syn::Item::Type(syn::ItemType {
                     attrs: vec![],
                     vis: syn::Visibility::Inherited,
                     type_token: single_token!(Type),
                     ident: ident("Ast"),
-                    generics: crate::NO_GENERICS,
+                    generics: NO_GENERICS,
                     eq_token: token!(Eq),
                     ty: Box::new(syn::Type::Path(ast_type)),
                     semi_token: token!(Semi),
@@ -626,7 +844,7 @@ fn make_fn_specific_module(
                     vis: syn::Visibility::Inherited,
                     const_token: single_token!(Const),
                     ident: ident("AST"),
-                    generics: crate::NO_GENERICS,
+                    generics: NO_GENERICS,
                     colon_token: token!(Colon),
                     ty: Box::new(Type::Path(syn::TypePath {
                         qself: None,

@@ -11,6 +11,7 @@ keywords = ["macro"]
 categories = ["development-tools::procedural-macro-helpers"]
 
 [dependencies]
+heck = ">=0.4"
 proc-macro2 = ">=1"
 syn = { version = ">=2", features = ["extra-traits", "full"] }
 quote = ">=1"
