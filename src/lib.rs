@@ -16,7 +16,7 @@
 //!     !roundtrip(add_one, 42),
 //! )]
 //! fn add_one(x: u8) -> u8 {
-//!     x + 1
+//!     x + 1_u8
 //! }
 //!
 //! #[sleuth(
@@ -24,7 +24,7 @@
 //!     !roundtrip(sub_one, 42),
 //! )]
 //! fn sub_one(x: u8) -> u8 {
-//!     x - 1
+//!     x - 1_u8
 //! }
 //! ```
 
