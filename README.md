@@ -1,6 +1,8 @@
 # Sleuth
 Extremely opinionated testing framework generating an exact specification and reducing code to its minimal implementation.
 
+🚧 No longer developed. Mostly exploratory in its current form. 🚧
+
 ## At a Glance
 This library takes the idea behind mutation testing to its extreme.
 
